@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": "sveltekit",
   "functions": {
-    "src/routes/**/*.server.ts": {
+    "src/routes/api/**/*.ts": {
       "maxDuration": 30
     }
   },
