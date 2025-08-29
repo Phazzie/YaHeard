@@ -166,6 +166,13 @@
     isDragOver = false;
   }
 
+  function handleKeyDown(event: KeyboardEvent) {
+    if ((event.key === 'Enter' || event.key === ' ') && !disabled && !isUploading) {
+      event.preventDefault();
+      document.getElementById('file-input')?.click();
+    }
+  }
+
   // ========= REGENERATION BOUNDARY END: Event Handlers =========
 </script>
 
@@ -190,10 +197,14 @@
     class="border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200
            {isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}
            {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}"
+    role="button"
+    tabindex="0"
+    aria-label="Upload audio file - drag and drop or click to browse"
     on:drop={handleDrop}
     on:dragover={handleDragOver}
     on:dragleave={handleDragLeave}
     on:click={() => !disabled && !isUploading && document.getElementById('file-input')?.click()}
+    on:keydown={handleKeyDown}
   >
     {#if isUploading}
       <div class="flex flex-col items-center">
