@@ -1,3 +1,4 @@
+<!--
 /**
  * @file +page.svelte
  * @purpose Main UI page for the Multi-AI Transcription Engine
@@ -35,6 +36,7 @@
  * 3. API Integration: Can switch to different endpoints or protocols
  * 4. Error Handling: Can implement different user feedback mechanisms
  */
+-->
 
 <script lang="ts">
   // ========= REGENERATION BOUNDARY START: Imports =========

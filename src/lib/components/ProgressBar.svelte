@@ -1,3 +1,4 @@
+<!--
 /**
  * @file ProgressBar.svelte
  * @purpose Reusable progress bar component
@@ -5,6 +6,7 @@
  * @last-regenerated 2025-01-29 13:54:37 UTC
  * @dependencies None
  */
+-->
 
 <script lang="ts">
   // ========= REGENERATION BOUNDARY START: Component Props =========
@@ -14,7 +16,7 @@
 
   export let progress: number = 0; // 0-100
   export let showPercentage: boolean = true;
-  export let color: string = 'blue';
+  export let color: 'blue' | 'green' | 'yellow' | 'red' | 'purple' = 'blue';
   export let height: string = 'h-2';
 
   // ========= REGENERATION BOUNDARY END: Component Props =========
@@ -35,7 +37,7 @@
     purple: 'bg-purple-600'
   };
 
-  $: bgColorClass = (colorClasses as any)[color] || colorClasses.blue;
+  $: bgColorClass = colorClasses[color] || colorClasses.blue;
 
   // ========= REGENERATION BOUNDARY END: Computed Values =========
 

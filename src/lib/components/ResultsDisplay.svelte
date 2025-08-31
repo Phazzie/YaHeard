@@ -1,3 +1,4 @@
+<!--
 /**
  * @file ResultsDisplay.svelte
  * @purpose Component to display transcription results and consensus
@@ -5,6 +6,7 @@
  * @last-regenerated 2025-01-29 13:54:37 UTC
  * @dependencies transcription.ts contract
  */
+-->
 
 <script lang="ts">
   // ========= REGENERATION BOUNDARY START: Imports and Types =========

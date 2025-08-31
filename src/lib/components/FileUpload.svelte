@@ -1,3 +1,4 @@
+<!--
 /**
  * @file FileUpload.svelte
  * @purpose Reusable file upload component with drag-and-drop
@@ -5,6 +6,7 @@
  * @last-regenerated 2025-01-29 13:54:37 UTC
  * @dependencies file-upload.ts contract
  */
+-->
 
 <script lang="ts">
   // ========= REGENERATION BOUNDARY START: Imports and Types =========
