@@ -1,12 +1,11 @@
-/**
- * @file FileUpload.svelte
- * @purpose Reusable file upload component with drag-and-drop
- * @phazzie-status working
- * @last-regenerated 2025-01-29 13:54:37 UTC
- * @dependencies file-upload.ts contract
- */
-
 <script lang="ts">
+  /**
+   * @file FileUpload.svelte
+   * @purpose Reusable file upload component with drag-and-drop
+   * @phazzie-status working
+   * @last-regenerated 2025-01-29 13:54:37 UTC
+   * @dependencies file-upload.ts contract
+   */
   // ========= REGENERATION BOUNDARY START: Imports and Types =========
   // @phazzie: This section can be regenerated independently
   // @contract: Must import required types and utilities
@@ -192,11 +191,12 @@
     id="file-input"
   />
 
-  <!-- Drop zone -->
+  <!-- Enhanced Drop Zone with Spectacular Effects -->
   <div
-    class="border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 backdrop-blur-sm
-           {isDragOver ? 'border-blue-400 bg-blue-50 shadow-lg shadow-blue-500/50' : 'border-gray-300'}
-           {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}"
+    class="upload-zone-enhanced rounded-3xl p-16 text-center transition-all duration-500 backdrop-blur-xl 
+           {isDragOver ? 'scale-105 shadow-neon-pink' : ''}
+           {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-neon-cyan'}"
+    class:drag-over={isDragOver}
     role="button"
     tabindex="0"
     aria-label="Upload audio file - drag and drop or click to browse"
@@ -208,38 +208,79 @@
   >
     {#if isUploading}
       <div class="flex flex-col items-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-        <p class="text-gray-600">Processing file...</p>
+        <div class="relative">
+          <div class="w-16 h-16 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin mb-6"></div>
+          <div class="absolute inset-0 w-16 h-16 border-4 border-neon-pink border-b-transparent rounded-full animate-spin mb-6" style="animation-direction: reverse; animation-delay: 0.3s;"></div>
+        </div>
+        <p class="text-2xl font-bold text-glow-cyan animate-pulse">🔮 Processing your file...</p>
+        <p class="text-lg text-white/70 mt-2">The magic is happening ✨</p>
       </div>
     {:else}
       <div class="flex flex-col items-center">
-        <svg class="w-16 h-16 text-blue-300 mb-6 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-        </svg>
-        <p class="text-xl font-semibold text-white mb-3 drop-shadow-lg">
-          Drop your audio file here
+        <!-- Animated Cloud Icon with Glow -->
+        <div class="relative mb-8">
+          <svg class="w-24 h-24 text-neon-cyan animate-float drop-shadow-2xl" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <!-- Pulsing Ring Effect -->
+          <div class="absolute inset-0 w-24 h-24 border-2 border-neon-cyan rounded-full animate-ping opacity-30"></div>
+          <div class="absolute inset-2 w-20 h-20 border border-neon-pink rounded-full animate-ping opacity-40" style="animation-delay: 0.5s;"></div>
+        </div>
+        
+        <p class="text-3xl font-bold text-glow-cyan mb-4 animate-neon-flicker">
+          🎵 Drop Your Audio Here 🎵
         </p>
-        <p class="text-gray-600 mb-4">
-          or <button type="button" class="text-blue-600 hover:text-blue-800 underline">browse files</button>
+        
+        <p class="text-xl text-white/90 mb-6">
+          or <button type="button" class="text-neon-pink hover:text-neon-cyan underline font-bold transition-colors duration-300 animate-pulse">browse files</button>
         </p>
-        <p class="text-sm text-gray-500">
-          Supports: {accept.join(', ')} (max {(maxSize / 1024 / 1024).toFixed(0)}MB)
-        </p>
+        
+        <!-- Supported Formats with Style -->
+        <div class="glass-morphism rounded-2xl p-4 border border-white/20">
+          <p class="text-lg text-white/80 mb-2">
+            <span class="text-neon-purple font-bold">Supported:</span>
+          </p>
+          <div class="flex flex-wrap justify-center gap-2 text-sm">
+            {#each accept as format}
+              <span class="bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-white px-3 py-1 rounded-full border border-neon-cyan/30 font-mono">
+                {format}
+              </span>
+            {/each}
+          </div>
+          <p class="text-neon-cyan mt-2 font-bold">
+            Max: {(maxSize / 1024 / 1024).toFixed(0)}MB
+          </p>
+        </div>
       </div>
     {/if}
   </div>
 
-  <!-- Error message -->
+  <!-- Enhanced Error Message -->
   {#if uploadError}
-    <div class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-      <strong>Upload Error:</strong> {uploadError}
+    <div class="mt-6 glass-morphism rounded-2xl p-6 border-2 border-red-500/50 shadow-neon-pink animate-fade-in-up">
+      <div class="flex items-center space-x-3">
+        <div class="text-4xl animate-bounce">💥</div>
+        <div>
+          <strong class="text-red-400 text-xl">Upload Failed:</strong>
+          <p class="text-red-300 text-lg mt-1">{uploadError}</p>
+        </div>
+      </div>
     </div>
   {/if}
 
-  <!-- Selected file info -->
+  <!-- Enhanced Selected File Info -->
   {#if selectedFile}
-    <div class="mt-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-      <strong>Selected:</strong> {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+    <div class="mt-6 glass-morphism rounded-2xl p-6 border-2 border-neon-green/50 shadow-neon-green animate-fade-in-up">
+      <div class="flex items-center space-x-4">
+        <div class="text-5xl animate-spin-slow">💾</div>
+        <div>
+          <strong class="text-neon-green text-xl">File Uploaded:</strong>
+          <p class="text-green-300 text-lg mt-1">
+            📁 {selectedFile.name} 
+            <span class="text-neon-cyan">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+          </p>
+        </div>
+      </div>
     </div>
   {/if}
 </div>
