@@ -45,8 +45,27 @@ function levenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Calculates the consensus transcription from multiple AI results using Levenshtein distance.
- * This is more robust than relying on self-reported confidence scores.
+ * Produce a consensus transcription from multiple AI transcription results.
+ *
+ * Uses Levenshtein distance to pick the result that is on average closest to the others,
+ * then computes an agreement percentage reflecting how similar other non-empty results are
+ * to that consensus.
+ *
+ * Detailed behavior:
+ * - Ignores results with empty or whitespace-only `text` when computing consensus.
+ * - If no non-empty results remain, returns an empty consensus with 0% agreement.
+ * - If exactly one non-empty result exists, that text is returned with 100% agreement.
+ * - For multiple non-empty results, computes the average Levenshtein distance between
+ *   each result and all others; selects the result with the smallest average distance
+ *   as the consensus. The agreement percentage is the rounded average similarity
+ *   (based on Levenshtein distance normalized by the longer string length) across
+ *   non-empty results, expressed as an integer 0–100.
+ *
+ * @param results - Array of TranscriptionResult objects; original results are preserved in the returned `allResults`.
+ * @returns An object with:
+ *   - `consensus` (string): chosen consensus transcription (empty string if none),
+ *   - `allResults` (TranscriptionResult[]): the original input array,
+ *   - `agreementPercentage` (number): rounded agreement percentage (0–100).
  */
 function calculateConsensus(results: TranscriptionResult[]): any {
   console.log('@phazzie-checkpoint-consensus-1: Calculating consensus from', results.length, 'results using Levenshtein distance');
