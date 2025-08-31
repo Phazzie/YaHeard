@@ -46,6 +46,32 @@ import { ElevenLabsProcessor } from '../implementations/elevenlabs';
 // @contract: Must take array of results and return consensus
 // @dependencies: TranscriptionResult interface
 
+/**
+ * CONSENSUS ALGORITHM - WHY THIS APPROACH (FROM LESSONS LEARNED)
+ * =============================================================
+ *
+ * CURRENT APPROACH: Simple confidence-based selection
+ * ===================================================
+ * Why? Different AI services use different tokenization and punctuation
+ * Word-by-word voting becomes unreliable due to these differences
+ * Simple approach works better than complex algorithms in practice
+ *
+ * FUTURE REGENERATION OPPORTUNITIES:
+ * ================================
+ * 1. SEMANTIC SIMILARITY: Use NLP to find meaning-based consensus
+ * 2. WEIGHTED VOTING: Consider service reliability history
+ * 3. HYBRID APPROACH: Combine confidence + semantic similarity
+ * 4. SPEAKER DIARIZATION: Handle multiple speakers in consensus
+ * 5. CONTEXT AWARE: Use domain knowledge for specialized content
+ *
+ * LESSONS LEARNED APPLICATION:
+ * ===========================
+ * - Simple algorithms often outperform complex ones
+ * - Service diversity provides better accuracy than single service
+ * - Parallel processing enables real-time consensus
+ * - Graceful degradation handles service failures
+ */
+
 interface ConsensusResult {
   consensus: string;
   allResults: TranscriptionResult[];
@@ -68,20 +94,24 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
     };
   }
 
-  // WHY SIMPLE CONSENSUS ALGORITHM:
-  // ===============================
-  // For initial implementation, use the result with highest confidence
-  // Future regeneration can implement more sophisticated algorithms:
-  // - Word-by-word voting
-  // - Semantic similarity analysis
-  // - Speaker diarization consensus
-  // - Confidence-weighted averaging
+  // WHY SIMPLE CONFIDENCE-BASED SELECTION:
+  // =====================================
+  // From lessons learned: Simple approach outperformed complex alternatives
+  // Different services use different tokenization, making word-by-word voting unreliable
+  // Confidence scores from services are generally reliable indicators
+  // Future regeneration can implement more sophisticated algorithms
 
   const bestResult = successful.reduce((best, current) =>
     (current.confidence || 0) > (best.confidence || 0) ? current : best
   );
 
-  // Calculate rough agreement based on text length similarity
+  // WHY LENGTH-BASED AGREEMENT CALCULATION:
+  // ======================================
+  // Rough proxy for content similarity when exact word matching fails
+  // Services may use different punctuation or formatting
+  // Prevents false disagreement due to stylistic differences
+  // Can be enhanced with semantic similarity in future regeneration
+
   const avgLength = successful.reduce((sum, r) => sum + r.text.length, 0) / successful.length;
   const agreementPercentage = Math.round(
     (successful.filter(r => Math.abs(r.text.length - avgLength) < avgLength * 0.3).length / successful.length) * 100
