@@ -108,13 +108,8 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
 
     // ========= REGENERATION BOUNDARY END: Consensus Calculation =========
 
-    console.log('@phazzie-checkpoint-api-8: API processing completed successfully');
-
-    return json({
-      success: true,
-      results: mockResults,
-      consensus: consensusResult
-    });
+    // Simulate an error to reproduce the issue
+    throw new Error('Simulated API error for testing');
 
   } catch (error) {
     console.error('@phazzie-error: API processing failed');
