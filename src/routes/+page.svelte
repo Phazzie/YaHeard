@@ -94,7 +94,7 @@
 
     } catch (error) {
       console.error('@phazzie-error: File upload handling failed');
-      errorMessage = 'REGENERATE_NEEDED: File upload handler';
+      errorMessage = 'Unable to process the uploaded file. Please try uploading a different audio file.';
       console.error(error);
     }
   }
@@ -167,7 +167,7 @@
 
     } catch (error) {
       console.error('@phazzie-error: Transcription processing failed');
-      errorMessage = 'REGENERATE_NEEDED: Transcription processing';
+      errorMessage = 'Unable to process audio file. Please check your internet connection and try again.';
       console.error(error);
     } finally {
       // WHY FINALLY BLOCK:

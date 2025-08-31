@@ -108,8 +108,13 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
 
     // ========= REGENERATION BOUNDARY END: Consensus Calculation =========
 
-    // Simulate an error to reproduce the issue
-    throw new Error('Simulated API error for testing');
+    console.log('@phazzie-checkpoint-api-8: API processing completed successfully');
+
+    return json({
+      success: true,
+      results: mockResults,
+      consensus: consensusResult
+    });
 
   } catch (error) {
     console.error('@phazzie-error: API processing failed');
@@ -117,7 +122,7 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
 
     return json({
       success: false,
-      error: 'REGENERATE_NEEDED: API processing'
+      error: 'Unable to process audio file. Please try again or contact support if the issue persists.'
     }, { status: 500 });
   }
 };
