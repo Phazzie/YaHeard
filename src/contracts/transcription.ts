@@ -85,7 +85,7 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
  * MAXIMUM FILE SIZE LIMIT - PREVENTING ABUSE
  * =============================================================================
  *
- * WHY 10MB LIMIT:
+ * WHY 60MB LIMIT:
  * ===============
  * - Balances user needs with server costs
  * - Prevents abuse of free tier services
