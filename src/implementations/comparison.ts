@@ -16,13 +16,11 @@ import type { TranscriptionResult } from '../contracts/transcription.ts';
 
 export class ConsensusComparisonEngine implements ComparisonEngine {
   compareTranscriptions(results: TranscriptionResult[]): ConsensusResult {
-    console.log('@phazzie-checkpoint-comparison-1: Starting consensus calculation');
 
     if (results.length === 0) {
       throw new Error('No transcription results provided');
     }
 
-    console.log('@phazzie-checkpoint-comparison-2: Processing results from', results.length, 'services');
 
     // Calculate consensus text (placeholder - would use more sophisticated algorithm)
     const consensusText = this.calculateConsensusText(results);
@@ -44,12 +42,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       stats
     };
 
-    console.log('@phazzie-checkpoint-comparison-3: Consensus calculation completed');
     return consensusResult;
   }
 
   private calculateConsensusText(results: TranscriptionResult[]): string {
-    console.log('@phazzie-checkpoint-comparison-4: Calculating consensus text');
 
     // Placeholder: Use the result with highest confidence as base
     const bestResult = results.reduce((best, current) =>
@@ -61,7 +57,6 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   }
 
   calculateConsensusConfidence(results: TranscriptionResult[]): number {
-    console.log('@phazzie-checkpoint-comparison-5: Calculating consensus confidence');
 
     if (results.length === 0) return 0;
 
@@ -85,7 +80,6 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   }
 
   findDisagreements(results: TranscriptionResult[]): Disagreement[] {
-    console.log('@phazzie-checkpoint-comparison-6: Finding disagreements');
 
     // Placeholder: Simple disagreement detection
     // In real implementation, would use text similarity algorithms
@@ -105,12 +99,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       }
     }
 
-    console.log('@phazzie-checkpoint-comparison-7: Found', disagreements.length, 'disagreements');
     return disagreements;
   }
 
   private calculateStats(results: TranscriptionResult[]): ConsensusStats {
-    console.log('@phazzie-checkpoint-comparison-8: Calculating statistics');
 
     const totalProcessingTime = results.reduce((sum, r) => sum + r.processingTimeMs, 0);
     const averageConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;

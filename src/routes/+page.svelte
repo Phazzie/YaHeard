@@ -14,11 +14,18 @@
 
   import { enhance } from '$app/forms';
   import { page } from '$app/stores';
+  import { onDestroy } from 'svelte';
   import FileUpload from '$lib/components/FileUpload.svelte';
   import ResultsDisplay from '$lib/components/ResultsDisplay.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
 
   // ========= REGENERATION BOUNDARY END: Imports =========
+
+  onDestroy(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+  });
 
   // ========= REGENERATION BOUNDARY START: State Management =========
   // @phazzie: This section can be regenerated independently
@@ -36,7 +43,7 @@
   $: consensus = jobStatus?.consensus;
 
   let jobStatus: any = null;
-  let pollingInterval: any = null;
+  let pollingInterval: number | null = null;
   const POLLING_TIMEOUT_MS = 300000; // 5 minutes
 
   // Reactive block to control polling based on application state
@@ -53,12 +60,10 @@
           return;
         }
 
-        console.log(`@phazzie-checkpoint-5: Polling for job ${jobId}`);
         const response = await fetch(`/api/status/${encodeURIComponent(jobId)}`);
         const data = await response.json();
 
         if (data.status === 'completed' || data.status === 'failed') {
-          console.log(`@phazzie-checkpoint-6: Job ${jobId} finished with status: ${data.status}`);
           clearInterval(pollingInterval);
           pollingInterval = null;
           jobStatus = data;
@@ -74,20 +79,23 @@
 
   // ========= REGENERATION BOUNDARY END: State Management =========
 
+  onDestroy(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+  });
+
   // ========= REGENERATION BOUNDARY START: File Upload Handler =========
   // @phazzie: This section can be regenerated independently
   // @contract: Must handle file upload and update state
   // @dependencies: FileUpload component
 
   function handleFileUploaded(event: CustomEvent) {
-    console.log('@phazzie-checkpoint-1: File upload event received');
     try {
       audioFile = event.detail.file;
       uploadStatus = 'idle';
       jobId = null;
-      console.log('@phazzie-checkpoint-2: File stored in state, ready for form submission');
     } catch (error) {
-      console.error('@phazzie-error: File upload handling failed', error);
       uploadStatus = 'error';
     }
   }
@@ -131,8 +139,8 @@
 
         return async ({ result, update }) => {
           if (result.type === 'success' && result.data?.uploadUrl) {
-            console.log('@phazzie-checkpoint-3: Received blob upload URL. Starting direct upload.');
             try {
+              // 1. Upload the file directly to blob storage
               const uploadResponse = await fetch(result.data.uploadUrl, {
                 method: 'PUT',
                 body: audioFile
@@ -142,23 +150,28 @@
                 throw new Error('Direct blob upload failed.');
               }
 
-              console.log('@phazzie-checkpoint-4: Blob upload successful.');
               jobId = result.data.pathname;
               uploadStatus = 'processing';
 
-              // Trigger the background processing job, but don't wait for it.
-              fetch('/api/process-transcription', {
+              // 2. Trigger the background processing job
+              const triggerResponse = await fetch('/api/process-transcription', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pathname: jobId })
               });
 
+              if (!triggerResponse.ok) {
+                throw new Error('Failed to start the background processing job.');
+              }
+
             } catch (err) {
-              console.error('@phazzie-error: Blob upload failed', err);
+              // This catch block now handles failures from either the blob upload or the job trigger.
               uploadStatus = 'error';
+              // Optionally set a more specific error message for the user
+              jobStatus = { error: err instanceof Error ? err.message : 'An unknown error occurred.' };
             }
           } else {
-             // Handle server action failure
+             // Handle failure from the initial SvelteKit action
              uploadStatus = 'error';
           }
           await update();

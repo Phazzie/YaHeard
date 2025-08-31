@@ -1,7 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { get } from '@vercel/blob';
+import { strictLimiter } from '../../../lib/server/ratelimit';
 import { kv } from '@vercel/kv';
+import logger from '../../../lib/server/logger';
 
 // Import AI service contracts and implementations
 import type { AudioProcessor } from '../../../contracts/processors';
@@ -23,7 +25,7 @@ import { ElevenLabsProcessor } from '../../../implementations/elevenlabs';
  * @param b The second string.
  * @returns The Levenshtein distance.
  */
-function levenshteinDistance(a: string, b: string): number {
+export function levenshteinDistance(a: string, b: string): number {
   const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
   for (let i = 0; i <= a.length; i += 1) {
     matrix[0][i] = i;
@@ -48,9 +50,7 @@ function levenshteinDistance(a: string, b: string): number {
  * Calculates the consensus transcription from multiple AI results using Levenshtein distance.
  * This is more robust than relying on self-reported confidence scores.
  */
-function calculateConsensus(results: TranscriptionResult[]): any {
-  console.log('@phazzie-checkpoint-consensus-1: Calculating consensus from', results.length, 'results using Levenshtein distance');
-
+export function calculateConsensus(results: TranscriptionResult[]): any {
   const successful = results.filter(r => r.text && r.text.trim().length > 0);
 
   if (successful.length === 0) {
@@ -74,8 +74,6 @@ function calculateConsensus(results: TranscriptionResult[]): any {
     current.avgDistance < best.avgDistance ? current : best
   );
 
-  console.log(`@phazzie-checkpoint-consensus-2: Best result chosen from ${bestResult.serviceName} with avg distance ${bestResult.avgDistance}`);
-
   // Calculate a more meaningful agreement percentage based on similarity to the consensus text.
   const totalSimilarity = successful.reduce((sum, result) => {
     const distance = levenshteinDistance(bestResult.text, result.text);
@@ -85,32 +83,37 @@ function calculateConsensus(results: TranscriptionResult[]): any {
   }, 0);
 
   const agreementPercentage = Math.round((totalSimilarity / successful.length) * 100);
-  console.log(`@phazzie-checkpoint-consensus-3: Final agreement percentage: ${agreementPercentage}%`);
 
   return {
     consensus: bestResult.text,
     allResults: results,
-    agreementPercentage
+    agreementPercentage,
+    winningService: bestResult.serviceName,
   };
 }
 
 // ========= REGENERATION BOUNDARY END: Consensus Algorithm =========
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async (event) => {
+  await strictLimiter.check(event);
+  const { request } = event;
   try {
     const { pathname } = await request.json();
     if (!pathname) {
       return json({ success: false, error: 'No pathname provided.' }, { status: 400 });
     }
-    console.log(`@phazzie-checkpoint-bg-1: Background processing triggered for ${pathname}`);
 
     // Set initial status in KV store
     await kv.set(pathname, { status: 'processing', startTime: Date.now() });
 
     // 1. Fetch the file from Vercel Blob
     const blob = await get(pathname);
-    const audioFile = new File([await blob.blob()], pathname.split('/').pop() || 'audio.tmp');
-    console.log(`@phazzie-checkpoint-bg-2: Fetched file from blob: ${audioFile.name}`);
+    const blobData = await blob.blob();
+    const audioFile = new File(
+      [blobData],
+      pathname.split('/').pop() || 'audio.tmp',
+      { type: blobData.type }
+    );
 
     // 2. Run transcription services (moved logic)
     const services: AudioProcessor[] = [];
@@ -124,7 +127,6 @@ export const POST: RequestHandler = async ({ request }) => {
       await kv.set(pathname, { status: 'failed', error: 'No AI services configured.' });
       return json({ success: false, error: 'No AI services configured.' }, { status: 500 });
     }
-    console.log(`@phazzie-checkpoint-bg-3: Initialized ${services.length} AI services.`);
 
     const processingStartTime = Date.now();
     const results = await Promise.allSettled(
@@ -143,11 +145,9 @@ export const POST: RequestHandler = async ({ request }) => {
         metadata: { error: 'Service completely failed' }
       } as TranscriptionResult;
     });
-    console.log(`@phazzie-checkpoint-bg-4: All AI processing completed.`);
 
     // 3. Calculate consensus
     const consensusResult = calculateConsensus(transcriptionResults);
-    console.log(`@phazzie-checkpoint-bg-5: Consensus calculated.`);
 
     // 4. Store final result in Vercel KV
     const finalResult = {
@@ -157,22 +157,30 @@ export const POST: RequestHandler = async ({ request }) => {
       completedAt: Date.now()
     };
     await kv.set(pathname, finalResult);
-    console.log(`@phazzie-checkpoint-bg-6: Stored final result in KV store for job ${pathname}.`);
+
+    logger.info(
+      {
+        jobId: pathname,
+        totalProcessingTime: finalResult.totalProcessingTime,
+        consensusWinner: consensusResult.winningService,
+        serviceTimings: transcriptionResults.map(r => ({ [r.serviceName]: r.processingTimeMs })),
+      },
+      'Transcription job completed'
+    );
 
     // This response is sent to the function that called it, NOT the client.
     // The client will poll a different endpoint for the result.
     return json({ success: true, message: `Processing finished for ${pathname}` });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('@phazzie-error-bg: Background processing failed', error);
+    logger.error({ err: error, request }, 'Background processing failed');
     // Attempt to update KV with failure status
     try {
       const { pathname } = await request.json();
-      if(pathname) await kv.set(pathname, { status: 'failed', error: errorMessage });
+      if(pathname) await kv.set(pathname, { status: 'failed', error: 'Processing failed.' });
     } catch (kvError) {
-      console.error('@phazzie-error-bg: Failed to update KV store with error state', kvError);
+      // Ignore KV error during error handling
     }
-    return json({ success: false, error: errorMessage }, { status: 500 });
+    return json({ success: false, error: 'An unexpected error occurred during processing.' }, { status: 500 });
   }
 };

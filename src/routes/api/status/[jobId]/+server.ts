@@ -1,8 +1,12 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { kv } from '@vercel/kv';
+import logger from '../../../../lib/server/logger';
+import { limiter } from '../../../../lib/server/ratelimit';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async (event) => {
+  await limiter.check(event);
+  const { params } = event;
   const { jobId } = params;
 
   if (!jobId) {
@@ -10,18 +14,27 @@ export const GET: RequestHandler = async ({ params }) => {
   }
 
   try {
-    console.log(`@phazzie-checkpoint-status-1: Checking status for job ${jobId}`);
     const result = await kv.get(jobId);
 
     if (!result) {
-      return json({ success: true, status: 'pending' }, { status: 202 });
+      const timestamp = new Date().toISOString();
+      // If you have logic to estimate wait time, replace the static value below
+      const estimatedWaitTimeSeconds = 30; // Example static value
+      return json(
+        {
+          success: true,
+          status: 'pending',
+          timestamp,
+          estimatedWaitTimeSeconds
+        },
+        { status: 202 }
+      );
     }
 
     return json({ success: true, ...result });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown KV error';
-    console.error(`@phazzie-error-status: Failed to get status for job ${jobId}`, error);
-    return json({ success: false, error: errorMessage }, { status: 500 });
+    logger.error({ err: error, jobId }, 'Failed to get job status');
+    return json({ success: false, error: 'An error occurred while fetching job status.' }, { status: 500 });
   }
 };

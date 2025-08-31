@@ -15,6 +15,7 @@
 
 import type { AudioProcessor, ProcessorConfig } from '../../contracts/processors';
 import type { TranscriptionResult } from '../../contracts/transcription';
+import { TranscriptionServiceError } from '$lib/server/errors';
 
 export class GeminiService implements AudioProcessor {
   serviceName = 'Google Gemini 2.5 Flash';
@@ -23,7 +24,6 @@ export class GeminiService implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-gemini-init: Gemini service initialized');
   }
 
   isConfigured(): boolean {
@@ -35,19 +35,16 @@ export class GeminiService implements AudioProcessor {
   }
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-gemini-0: Checking Gemini availability');
     return this.isConfigured();
   }
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-gemini-1: Starting REAL Gemini API processing');
 
     try {
       if (!this.isConfigured()) {
         throw new Error('GEMINI_API_KEY not configured - add to environment variables');
       }
 
-      console.log('@phazzie-checkpoint-gemini-2: Converting file to buffer');
 
       // Convert File to ArrayBuffer for API
       const arrayBuffer = await file.arrayBuffer();
@@ -55,7 +52,6 @@ export class GeminiService implements AudioProcessor {
 
       const startTime = Date.now();
 
-      console.log('@phazzie-checkpoint-gemini-3: Calling Gemini API');
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.config.apiKey}`,
@@ -73,7 +69,7 @@ export class GeminiService implements AudioProcessor {
                 {
                   inlineData: {
                     mimeType: "audio/wav",
-                    data: btoa(String.fromCharCode(...Array.from(uint8Array)))
+                    data: Buffer.from(arrayBuffer).toString('base64')
                   }
                 }
               ]
@@ -94,7 +90,6 @@ export class GeminiService implements AudioProcessor {
       const data = await response.json();
       const transcriptionText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      console.log('@phazzie-checkpoint-gemini-4: Transcription completed successfully');
 
       const processingTime = Date.now() - startTime;
 
@@ -113,17 +108,7 @@ export class GeminiService implements AudioProcessor {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-gemini:', errorMessage);
-
-      return {
-        id: `gemini-error-${Date.now()}`,
-        serviceName: this.serviceName,
-        text: '',
-        confidence: 0,
-        processingTimeMs: 0,
-        timestamp: new Date(),
-        error: errorMessage
-      };
+      throw new TranscriptionServiceError(this.serviceName, `Gemini API integration failed: ${errorMessage}`, { cause: error });
     }
   }
 

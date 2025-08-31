@@ -49,7 +49,6 @@
   // @dependencies: File upload contract
 
   function validateAudioFile(file: File): { isValid: boolean; error?: string } {
-    console.log('@phazzie-checkpoint-validation-1: Validating file');
 
     // Check file size
     if (file.size > maxSize) {
@@ -70,7 +69,6 @@
       };
     }
 
-    console.log('@phazzie-checkpoint-validation-2: File validation passed');
     return { isValid: true };
   }
 
@@ -82,12 +80,10 @@
   // @dependencies: File validation, state management
 
   async function processSelectedFile(file: File) {
-    console.log('@phazzie-checkpoint-upload-1: Processing selected file');
 
     const validation = validateAudioFile(file);
     if (!validation.isValid) {
       uploadError = validation.error || 'Invalid file';
-      console.error('@phazzie-error: File validation failed');
       return;
     }
 
@@ -96,7 +92,6 @@
       uploadError = '';
       isUploading = true;
 
-      console.log('@phazzie-checkpoint-upload-2: File validated, preparing upload');
 
       // Create upload result
       const uploadResult: UploadResult = {
@@ -112,17 +107,13 @@
         }
       };
 
-      console.log('@phazzie-checkpoint-upload-3: Upload result created');
 
       // Dispatch event to parent component
       dispatch('fileUploaded', { file, result: uploadResult });
 
-      console.log('@phazzie-checkpoint-upload-4: File upload completed successfully');
 
     } catch (error) {
-      console.error('@phazzie-error: File processing failed');
       uploadError = 'REGENERATE_NEEDED: File processing';
-      console.error(error);
     } finally {
       isUploading = false;
     }

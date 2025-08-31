@@ -44,6 +44,7 @@
 
 import type { AudioProcessor, ProcessorConfig } from '../contracts/processors.ts';
 import type { TranscriptionResult } from '../contracts/transcription.ts';
+import { TranscriptionServiceError } from '$lib/server/errors';
 
 // ========= REGENERATION BOUNDARY START: AssemblyAI Implementation =========
 // @phazzie: This entire file can be regenerated independently
@@ -56,23 +57,18 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-assembly-1: AssemblyAI processor initialized');
   }
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-assembly-2: Checking AssemblyAI availability');
 
     if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-assembly-3: No API key configured');
       return false;
     }
 
-    console.log('@phazzie-checkpoint-assembly-4: AssemblyAI is available');
     return true;
   }
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-assembly-5: Starting REAL AssemblyAI processing');
 
     try {
       // WHY REAL API IMPLEMENTATION:
@@ -85,7 +81,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
         throw new Error('ASSEMBLYAI_API_KEY not configured - add to environment variables');
       }
 
-      console.log('@phazzie-checkpoint-assembly-6: Converting file to buffer');
 
       // Convert File to ArrayBuffer for upload
       const arrayBuffer = await file.arrayBuffer();
@@ -99,7 +94,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
       // Upload returns a URL, then transcription is requested
       // Polling is needed to check completion status
 
-      console.log('@phazzie-checkpoint-assembly-7: Uploading audio to AssemblyAI');
 
       // Step 1: Upload audio file
       const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
@@ -117,7 +111,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
       const { upload_url } = await uploadResponse.json();
 
-      console.log('@phazzie-checkpoint-assembly-8: Requesting transcription');
 
       // Step 2: Request transcription
       const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
@@ -138,7 +131,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
       const { id } = await transcriptResponse.json();
 
-      console.log('@phazzie-checkpoint-assembly-9: Polling for completion');
 
       // Step 3: Poll for results (max 60 seconds)
       let attempts = 0;
@@ -156,7 +148,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
         const result = await statusResponse.json();
 
         if (result.status === 'completed') {
-          console.log('@phazzie-checkpoint-assembly-10: Transcription completed successfully');
 
           const processingTime = Date.now() - startTime;
 
@@ -175,7 +166,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
             }
           };
 
-          console.log('@phazzie-checkpoint-assembly-11: Returning transcription result');
           return transcriptionResult;
 
         } else if (result.status === 'error') {
@@ -194,14 +184,7 @@ export class AssemblyAIProcessor implements AudioProcessor {
       // Should guide regeneration when things break
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-assembly:', errorMessage);
-      console.error('ASSEMBLYAI REGENERATION NEEDED:');
-      console.error('1. Check ASSEMBLYAI_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to AssemblyAI');
-
-      throw new Error(`REGENERATE_NEEDED: AssemblyAI API integration - ${errorMessage}`);
+      throw new TranscriptionServiceError(this.serviceName, `AssemblyAI API integration failed: ${errorMessage}`, { cause: error });
     }
   }
 

@@ -34,12 +34,48 @@ interface Actions {
 }
 
 import { put } from '@vercel/blob';
+import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '$lib/config';
+import logger from '$lib/server/logger';
+import { strictLimiter } from '$lib/server/ratelimit';
+
+// Magic bytes for common audio formats to validate file signatures
+const MAGIC_BYTES: { [key: string]: number[] } = {
+  'audio/mpeg': [0x49, 0x44, 0x33], // ID3 tag for MP3
+  'audio/wav': [0x52, 0x49, 0x46, 0x46], // RIFF
+  'audio/x-wav': [0x52, 0x49, 0x46, 0x46], // RIFF
+  'audio/flac': [0x66, 0x4C, 0x61, 0x43], // fLaC
+  'audio/ogg': [0x4F, 0x67, 0x67, 0x53], // OggS
+};
+
+async function isValidFileSignature(file: File): Promise<boolean> {
+  const magic = MAGIC_BYTES[file.type];
+  if (!magic) {
+    // If we don't have magic bytes for this type, we can't validate it.
+    // We'll trust the MIME type for formats like m4a, webm.
+    return true;
+  }
+
+  const fileHeader = await file.slice(0, magic.length).arrayBuffer();
+  const uint8 = new Uint8Array(fileHeader);
+
+  if (uint8.length < magic.length) {
+    return false;
+  }
+
+  for (let i = 0; i < magic.length; i++) {
+    if (uint8[i] !== magic[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 export const actions: Actions = {
   // Default action for form submissions
   default: async (event: { request: Request }) => {
+    await strictLimiter.check(event);
     const { request } = event;
-    console.log('@phazzie-checkpoint-server-1: Blob upload request received');
 
     const formData = await request.formData();
     // We only need the file name and type, not the content, to generate the upload URL.
@@ -47,6 +83,20 @@ export const actions: Actions = {
 
     if (!audioFile) {
       return { success: false, error: 'No audio file provided.' };
+    }
+
+    // Validate file type and size using centralized config
+    if (!ALLOWED_FILE_TYPES.includes(audioFile.type)) {
+      return { success: false, error: 'Unsupported audio file type.' };
+    }
+
+    if (audioFile.size > MAX_FILE_SIZE_BYTES) {
+      return { success: false, error: `Audio file is too large. Maximum size is ${MAX_FILE_SIZE_MB}MB.` };
+    }
+
+    // Validate file signature using magic bytes
+    if (!(await isValidFileSignature(audioFile))) {
+      return { success: false, error: 'File content does not match its type.' };
     }
 
     // The file body will be streamed directly from the client to Vercel Blob.
@@ -57,10 +107,6 @@ export const actions: Actions = {
         contentType: audioFile.type,
       });
 
-      console.log('@phazzie-checkpoint-server-2: Blob upload URL generated');
-      console.log('@phazzie-checkpoint-server-3: URL:', url);
-      console.log('@phazzie-checkpoint-server-4: Pathname (Job ID):', pathname);
-
       // Return the URL for the client to upload to, and the pathname to use as a job ID.
       return {
         success: true,
@@ -69,11 +115,10 @@ export const actions: Actions = {
       };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown blob error';
-      console.error('@phazzie-error-server: Blob upload URL generation failed', error);
+      logger.error({ err: error, file: audioFile.name }, 'Blob upload URL generation failed');
       return {
         success: false,
-        error: `Blob upload URL generation failed: ${errorMessage}`
+        error: 'An unexpected error occurred on the server. Please try again later.'
       };
     }
   }

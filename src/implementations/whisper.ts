@@ -70,6 +70,7 @@
 
 import type { AudioProcessor, ProcessorConfig } from '../contracts/processors.ts';
 import type { TranscriptionResult } from '../contracts/transcription.ts';
+import { TranscriptionServiceError } from '$lib/server/errors';
 
 // ========= REGENERATION BOUNDARY END: Imports =========
 
@@ -96,12 +97,6 @@ export class WhisperProcessor implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-whisper-1: Whisper processor initialized');
-
-    // WHY THIS LOG:
-    // =============
-    // Initialization logging helps debug configuration issues
-    // Shows which services are available during startup
   }
 
   // ========= REGENERATION BOUNDARY END: Constructor =========
@@ -112,8 +107,6 @@ export class WhisperProcessor implements AudioProcessor {
   // @dependencies: config.apiKey must be available
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-whisper-2: Checking Whisper availability');
-
     // WHY THIS CHECK:
     // ===============
     // API key is required for Whisper API calls
@@ -121,7 +114,6 @@ export class WhisperProcessor implements AudioProcessor {
     // This prevents runtime failures
 
     if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-whisper-3: No API key configured');
       return false;
     }
 
@@ -131,7 +123,6 @@ export class WhisperProcessor implements AudioProcessor {
     // We assume it's available if we have an API key
     // Could add actual API ping in future regeneration
 
-    console.log('@phazzie-checkpoint-whisper-4: Whisper is available');
     return true;
   }
 
@@ -143,8 +134,6 @@ export class WhisperProcessor implements AudioProcessor {
   // @dependencies: Whisper API must be accessible
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-whisper-5: Starting REAL Whisper API processing');
-
     // WHY THIS METHOD:
     // ================
     // This is where the actual Whisper API integration happens
@@ -162,8 +151,6 @@ export class WhisperProcessor implements AudioProcessor {
         throw new Error('OPENAI_API_KEY not configured - add to environment variables');
       }
 
-      console.log('@phazzie-checkpoint-whisper-6: Converting file to buffer');
-
       // Convert File to ArrayBuffer for API
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
@@ -179,8 +166,6 @@ export class WhisperProcessor implements AudioProcessor {
       formData.append('file', audioBlob, 'audio.wav');
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
-
-      console.log('@phazzie-checkpoint-whisper-7: Calling OpenAI Whisper API');
 
       const startTime = Date.now();
 
@@ -199,8 +184,6 @@ export class WhisperProcessor implements AudioProcessor {
 
       const data = await response.json();
       const processingTime = Date.now() - startTime;
-
-      console.log('@phazzie-checkpoint-whisper-8: Transcription completed successfully');
 
       // WHY THIS RESPONSE FORMAT:
       // =========================
@@ -223,7 +206,6 @@ export class WhisperProcessor implements AudioProcessor {
         }
       };
 
-      console.log('@phazzie-checkpoint-whisper-9: Returning transcription result');
       return result;
 
     } catch (error) {
@@ -234,14 +216,7 @@ export class WhisperProcessor implements AudioProcessor {
       // Should not expose sensitive information
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-whisper:', errorMessage);
-      console.error('WHISPER REGENERATION NEEDED:');
-      console.error('1. Check OPENAI_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to OpenAI');
-
-      throw new Error(`REGENERATE_NEEDED: Whisper API integration - ${errorMessage}`);
+      throw new TranscriptionServiceError(this.serviceName, `Whisper API integration failed: ${errorMessage}`, { cause: error });
     }
   }
 
