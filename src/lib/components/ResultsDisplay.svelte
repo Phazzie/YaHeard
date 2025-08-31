@@ -24,6 +24,10 @@
   export let results: TranscriptionResult[] = [];
   export let consensus: ConsensusResult | null = null;
 
+let activeTab = 'overview';|export let consensus: ConsensusResult | null = null;
+
+let activeTab = 'overview';
+
   // ========= REGENERATION BOUNDARY END: Component Props =========
 
   // ========= REGENERATION BOUNDARY START: Computed Values =========
@@ -75,7 +79,7 @@
   <div class="space-y-6">
 
     <!-- Summary Statistics -->
-    <div class="bg-gray-50 rounded-lg p-4">
+    <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 shadow-xl">
       <h3 class="text-lg font-semibold mb-3">Processing Summary</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="text-center">
@@ -95,9 +99,16 @@
       </div>
     </div>
 
-    <!-- Consensus Result -->
+    <!-- Tab Navigation -->
+    <div class='flex space-x-1 bg-white/5 backdrop-blur-lg rounded-lg p-1 border border-white/10'>
+      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "overview" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'overview'}>� Overview</button>
+      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "detailed" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'detailed'}>� Detailed</button>
+    </div>
+
+    {#if activeTab === "overview"}
+      <!-- Consensus Result -->
     {#if consensus}
-      <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div class="bg-green-500/20 backdrop-blur-lg border border-green-400/50 rounded-xl p-6 shadow-lg shadow-green-500/30">
         <h3 class="text-lg font-semibold text-green-800 mb-3">🎯 Consensus Transcription</h3>
         <div class="bg-white p-4 rounded border">
           <p class="text-gray-800 leading-relaxed">{consensus.finalText}</p>
@@ -110,12 +121,13 @@
       </div>
     {/if}
 
-    <!-- Individual Results -->
+    {#if activeTab === "detailed"}
+      <!-- Individual Results -->
     <div class="space-y-4">
       <h3 class="text-lg font-semibold">Individual AI Results</h3>
 
       {#each results as result (result.id)}
-        <div class="bg-white border rounded-lg p-4">
+        <div class="bg-white/10 backdrop-blur-lg border border-white/30 rounded-xl p-6 shadow-lg hover:shadow-purple-500/25 transition-all duration-300">
           <div class="flex items-center justify-between mb-3">
             <h4 class="font-medium text-gray-900">{result.serviceName}</h4>
             <div class="flex items-center space-x-2">
@@ -142,16 +154,16 @@
     </div>
 
     <!-- Export Options -->
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="bg-blue-500/20 backdrop-blur-lg border border-blue-400/50 rounded-xl p-6 shadow-lg shadow-blue-500/30">
       <h3 class="text-lg font-semibold text-blue-800 mb-3">Export Options</h3>
       <div class="flex flex-wrap gap-2">
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+        <button class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105">
           📄 Download as Text
         </button>
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+        <button class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105">
           📊 Download as JSON
         </button>
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+        <button class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-lg hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105">
           📋 Copy to Clipboard
         </button>
       </div>

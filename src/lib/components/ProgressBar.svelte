@@ -62,9 +62,9 @@
 
 <div class="w-full">
   <!-- Progress Bar -->
-  <div class="w-full bg-gray-200 rounded-full {height} overflow-hidden">
+  <div class="w-full bg-gray-700/50 rounded-full shadow-inner {height} overflow-hidden">
     <div
-      class="h-full {bgColorClass} transition-all duration-300 ease-out rounded-full"
+      class="h-full {bgColorClass} transition-all duration-300 ease-out rounded-full shadow-lg shadow-blue-500/50"
       style="width: {progressWidth}"
     ></div>
   </div>

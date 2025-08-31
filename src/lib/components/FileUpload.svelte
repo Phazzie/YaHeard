@@ -194,8 +194,8 @@
 
   <!-- Drop zone -->
   <div
-    class="border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200
-           {isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}
+    class="border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 backdrop-blur-sm
+           {isDragOver ? 'border-blue-400 bg-blue-50 shadow-lg shadow-blue-500/50' : 'border-gray-300'}
            {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}"
     role="button"
     tabindex="0"
@@ -213,10 +213,10 @@
       </div>
     {:else}
       <div class="flex flex-col items-center">
-        <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-16 h-16 text-blue-300 mb-6 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
         </svg>
-        <p class="text-lg font-medium text-gray-900 mb-2">
+        <p class="text-xl font-semibold text-white mb-3 drop-shadow-lg">
           Drop your audio file here
         </p>
         <p class="text-gray-600 mb-4">

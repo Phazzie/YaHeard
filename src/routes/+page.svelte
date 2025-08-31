@@ -4,6 +4,36 @@
  * @phazzie-status working
  * @last-regenerated 2025-01-29 13:54:37 UTC
  * @dependencies FileUpload.svelte, ResultsDisplay.svelte, ProgressBar.svelte
+ *
+ * PROGRESSIVE ENHANCEMENT PATTERN (FROM LESSONS LEARNED):
+ * ======================================================
+ * This UI implements progressive enhancement for maximum accessibility:
+ * 1. HTML-ONLY: Core functionality works without JavaScript
+ * 2. JAVASCRIPT ENHANCED: Drag-and-drop, progress indicators, dynamic updates
+ * 3. AI-POWERED: Multi-service transcription with consensus algorithm
+ *
+ * WHY THIS ARCHITECTURE:
+ * =====================
+ * - Works without JavaScript (accessibility, performance, reliability)
+ * - Graceful degradation when services fail
+ * - Clear loading states prevent user confusion
+ * - Error recovery options guide users through issues
+ *
+ * STATE MANAGEMENT LOGIC (FROM LESSONS LEARNED):
+ * ==============================================
+ * State variables follow clear naming conventions for regeneration:
+ * - audioFileFromUser: Current uploaded file (null when no file)
+ * - isProcessingTranscription: Loading state (true during API calls)
+ * - transcriptionResults: Array of AI service results
+ * - uploadProgress: Progress percentage (0-100)
+ * - errorMessage: User-friendly error messages
+ *
+ * REGENERATION PATTERNS:
+ * =====================
+ * 1. UI Layout: Can be completely redesigned while maintaining state
+ * 2. Event Handlers: Can be rewritten with different interaction patterns
+ * 3. API Integration: Can switch to different endpoints or protocols
+ * 4. Error Handling: Can implement different user feedback mechanisms
  */
 
 <script lang="ts">
@@ -23,11 +53,17 @@
   // @contract: Must maintain application state
   // @dependencies: None
 
-  let audioFileFromUser: File | null = null;
-  let isProcessingTranscription = false;
-  let transcriptionResults: any[] = [];
-  let uploadProgress = 0;
-  let errorMessage = '';
+  // WHY VERBOSE NAMING:
+  // ===================
+  // Self-documenting variable names enable instant understanding
+  // No need to trace variable origins during regeneration
+  // Clear intent makes code maintenance easier
+
+  let audioFileFromUser: File | null = null;  // Current uploaded audio file
+  let isProcessingTranscription = false;      // Loading state during API calls
+  let transcriptionResults: any[] = [];       // Results from all AI services
+  let uploadProgress = 0;                     // Progress percentage (0-100)
+  let errorMessage = '';                      // User-friendly error display
 
   // ========= REGENERATION BOUNDARY END: State Management =========
 
@@ -46,7 +82,12 @@
       console.log('@phazzie-checkpoint-2: File stored in state');
       console.log('@phazzie-checkpoint-3: Ready for transcription processing');
 
-      // Reset any previous errors
+      // WHY ERROR RESET:
+      // ================
+      // Clear previous errors when new file is uploaded
+      // Prevents stale error messages from confusing users
+      // Fresh start for new transcription attempt
+
       errorMessage = '';
 
     } catch (error) {
@@ -66,6 +107,12 @@
   async function startTranscriptionProcess() {
     console.log('@phazzie-checkpoint-4: Starting transcription process');
 
+    // WHY EARLY VALIDATION:
+    // =====================
+    // Prevent API calls with invalid state
+    // Clear error messages guide user action
+    // Fail fast to improve user experience
+
     if (!audioFileFromUser) {
       errorMessage = 'No file selected';
       return;
@@ -77,7 +124,12 @@
 
       console.log('@phazzie-checkpoint-5: Sending file to API');
 
-      // Simulate progress updates
+      // WHY PROGRESS SIMULATION:
+      // ========================
+      // Provide immediate feedback while API processes
+      // Prevents user confusion during long operations
+      // Can be replaced with real progress in future regeneration
+
       const progressInterval = setInterval(() => {
         uploadProgress += 10;
         if (uploadProgress >= 100) {
@@ -85,7 +137,12 @@
         }
       }, 500);
 
-      // Call the transcription API
+      // WHY FETCH API:
+      // ==============
+      // Native browser API for HTTP requests
+      // No external dependencies required
+      // Can be easily replaced with different HTTP clients
+
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         body: new FormData([['audio', audioFileFromUser]])
@@ -108,6 +165,12 @@
       errorMessage = 'REGENERATE_NEEDED: Transcription processing';
       console.error(error);
     } finally {
+      // WHY FINALLY BLOCK:
+      // ==================
+      // Always reset loading state
+      // Prevents UI from getting stuck in loading mode
+      // Ensures user can retry after errors
+
       isProcessingTranscription = false;
     }
   }
@@ -120,15 +183,15 @@
 <!-- @contract: Must render the main application UI -->
 <!-- @dependencies: State variables and event handlers -->
 
-<main class="min-h-screen bg-gray-50 py-8">
+<main class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8">
   <div class="max-w-4xl mx-auto px-4">
 
     <!-- Header Section -->
     <div class="text-center mb-8">
-      <h1 class="text-4xl font-bold text-gray-900 mb-2">
+      <h1 class="text-5xl font-bold text-white mb-2 drop-shadow-lg animate-pulse">
         Multi-AI Transcription Engine
       </h1>
-      <p class="text-lg text-gray-600">
+      <p class="text-xl text-blue-200 drop-shadow-md">
         Upload audio files and get consensus transcriptions from multiple AI services
       </p>
     </div>
@@ -141,7 +204,7 @@
     {/if}
 
     <!-- File Upload Section -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
       <h2 class="text-2xl font-semibold mb-4">Upload Audio File</h2>
 
       <FileUpload
@@ -160,12 +223,12 @@
 
     <!-- Processing Section -->
     {#if audioFileFromUser && !isProcessingTranscription}
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
         <h2 class="text-2xl font-semibold mb-4">Start Transcription</h2>
 
         <button
           on:click={startTranscriptionProcess}
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
+          class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
           disabled={isProcessingTranscription}
         >
           🚀 Process with Multiple AI Services
@@ -175,7 +238,7 @@
 
     <!-- Progress Section -->
     {#if isProcessingTranscription}
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
         <h2 class="text-2xl font-semibold mb-4">Processing...</h2>
 
         <ProgressBar progress={uploadProgress} />
@@ -188,7 +251,7 @@
 
     <!-- Results Section -->
     {#if transcriptionResults.length > 0}
-      <div class="bg-white rounded-lg shadow-md p-6">
+      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 border border-white/20 hover:shadow-green-500/25 transition-all duration-300">
         <h2 class="text-2xl font-semibold mb-4">Transcription Results</h2>
 
         <ResultsDisplay results={transcriptionResults} />

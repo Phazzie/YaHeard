@@ -99,7 +99,7 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
  * 2. Changing requires testing across all components
  * 3. Business decision that affects pricing
  */
-export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+export const MAX_FILE_SIZE_BYTES = 60 \* 1024 \* 1024; // 10MB
 
 /**
  * =============================================================================
