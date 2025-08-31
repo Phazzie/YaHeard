@@ -143,9 +143,12 @@
       // No external dependencies required
       // Can be easily replaced with different HTTP clients
 
+      const formData = new FormData();
+      formData.append('audio', audioFileFromUser);
+
       const response = await fetch('/api/transcribe', {
         method: 'POST',
-        body: new FormData([['audio', audioFileFromUser]])
+        body: formData
       });
 
       clearInterval(progressInterval);

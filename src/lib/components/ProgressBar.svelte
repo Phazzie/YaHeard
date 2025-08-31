@@ -27,7 +27,7 @@
   $: clampedProgress = Math.max(0, Math.min(100, progress));
   $: progressWidth = `${clampedProgress}%`;
 
-  $: colorClasses = {
+  const colorClasses = {
     blue: 'bg-blue-600',
     green: 'bg-green-600',
     yellow: 'bg-yellow-600',
@@ -35,7 +35,7 @@
     purple: 'bg-purple-600'
   };
 
-  $: bgColorClass = colorClasses[color] || colorClasses.blue;
+  $: bgColorClass = (colorClasses as any)[color] || colorClasses.blue;
 
   // ========= REGENERATION BOUNDARY END: Computed Values =========
 
