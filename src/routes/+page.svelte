@@ -1,44 +1,42 @@
-<!--
-/**
- * @file +page.svelte
- * @purpose Main UI page for the Multi-AI Transcription Engine
- * @phazzie-status working
- * @last-regenerated 2025-01-29 13:54:37 UTC
- * @dependencies FileUpload.svelte, ResultsDisplay.svelte, ProgressBar.svelte
- *
- * PROGRESSIVE ENHANCEMENT PATTERN (FROM LESSONS LEARNED):
- * ======================================================
- * This UI implements progressive enhancement for maximum accessibility:
- * 1. HTML-ONLY: Core functionality works without JavaScript
- * 2. JAVASCRIPT ENHANCED: Drag-and-drop, progress indicators, dynamic updates
- * 3. AI-POWERED: Multi-service transcription with consensus algorithm
- *
- * WHY THIS ARCHITECTURE:
- * =====================
- * - Works without JavaScript (accessibility, performance, reliability)
- * - Graceful degradation when services fail
- * - Clear loading states prevent user confusion
- * - Error recovery options guide users through issues
- *
- * STATE MANAGEMENT LOGIC (FROM LESSONS LEARNED):
- * ==============================================
- * State variables follow clear naming conventions for regeneration:
- * - audioFileFromUser: Current uploaded file (null when no file)
- * - isProcessingTranscription: Loading state (true during API calls)
- * - transcriptionResults: Array of AI service results
- * - uploadProgress: Progress percentage (0-100)
- * - errorMessage: User-friendly error messages
- *
- * REGENERATION PATTERNS:
- * =====================
- * 1. UI Layout: Can be completely redesigned while maintaining state
- * 2. Event Handlers: Can be rewritten with different interaction patterns
- * 3. API Integration: Can switch to different endpoints or protocols
- * 4. Error Handling: Can implement different user feedback mechanisms
- */
--->
-
 <script lang="ts">
+  /**
+   * @file +page.svelte
+   * @purpose Main UI page for the Multi-AI Transcription Engine
+   * @phazzie-status working
+   * @last-regenerated 2025-01-29 13:54:37 UTC
+   * @dependencies FileUpload.svelte, ResultsDisplay.svelte, ProgressBar.svelte
+   *
+   * PROGRESSIVE ENHANCEMENT PATTERN (FROM LESSONS LEARNED):
+   * ======================================================
+   * This UI implements progressive enhancement for maximum accessibility:
+   * 1. HTML-ONLY: Core functionality works without JavaScript
+   * 2. JAVASCRIPT ENHANCED: Drag-and-drop, progress indicators, dynamic updates
+   * 3. AI-POWERED: Multi-service transcription with consensus algorithm
+   *
+   * WHY THIS ARCHITECTURE:
+   * =====================
+   * - Works without JavaScript (accessibility, performance, reliability)
+   * - Graceful degradation when services fail
+   * - Clear loading states prevent user confusion
+   * - Error recovery options guide users through issues
+   *
+   * STATE MANAGEMENT LOGIC (FROM LESSONS LEARNED):
+   * ==============================================
+   * State variables follow clear naming conventions for regeneration:
+   * - audioFileFromUser: Current uploaded file (null when no file)
+   * - isProcessingTranscription: Loading state (true during API calls)
+   * - transcriptionResults: Array of AI service results
+   * - uploadProgress: Progress percentage (0-100)
+   * - errorMessage: User-friendly error messages
+   *
+   * REGENERATION PATTERNS:
+   * =====================
+   * 1. UI Layout: Can be completely redesigned while maintaining state
+   * 2. Event Handlers: Can be rewritten with different interaction patterns
+   * 3. API Integration: Can switch to different endpoints or protocols
+   * 4. Error Handling: Can implement different user feedback mechanisms
+   */
+
   // ========= REGENERATION BOUNDARY START: Imports =========
   // @phazzie: This section can be regenerated independently
   // @contract: Must import required components and types
@@ -188,29 +186,64 @@
 <!-- @contract: Must render the main application UI -->
 <!-- @dependencies: State variables and event handlers -->
 
-<main class="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 py-8">
-  <div class="max-w-4xl mx-auto px-4">
+<!-- Animated Background Particles -->
+<div class="particle-container">
+  {#each Array(20) as _, i}
+    <div 
+      class="particle" 
+      style="left: {Math.random() * 100}%; animation-delay: {Math.random() * 8}s; animation-duration: {8 + Math.random() * 4}s;"
+    ></div>
+  {/each}
+</div>
 
-    <!-- Header Section -->
-    <div class="text-center mb-8">
-      <h1 class="text-5xl font-bold text-white mb-2 drop-shadow-lg animate-pulse">
-        Multi-AI Transcription Engine
+<main class="min-h-screen relative cyber-grid-bg">
+  <!-- Dynamic Gradient Overlay -->
+  <div class="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/60 to-cyan-900/80 animate-gradient-x"></div>
+  
+  <div class="relative z-10 max-w-6xl mx-auto px-4 py-12">
+
+    <!-- Header Section with Massive Glow Effects -->
+    <div class="text-center mb-16 animate-fade-in-up">
+      <h1 class="text-7xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-purple mb-6 animate-glow-pulse">
+        🎵 YaHeard 🎵
       </h1>
-      <p class="text-xl text-blue-200 drop-shadow-md">
-        Upload audio files and get consensus transcriptions from multiple AI services
+      <h2 class="text-4xl lg:text-5xl font-bold text-glow-cyan mb-4 animate-neon-flicker">
+        Multi-AI Transcription Engine
+      </h2>
+      <p class="text-2xl text-white/90 drop-shadow-2xl animate-float max-w-3xl mx-auto leading-relaxed">
+        ✨ Upload audio files and get <span class="text-glow-pink font-bold">consensus transcriptions</span> from multiple AI services ✨
       </p>
+      
+      <!-- Decorative Elements -->
+      <div class="flex justify-center space-x-8 mt-8">
+        <div class="w-4 h-4 bg-neon-cyan rounded-full animate-ping shadow-neon-cyan"></div>
+        <div class="w-4 h-4 bg-neon-pink rounded-full animate-ping shadow-neon-pink" style="animation-delay: 0.5s"></div>
+        <div class="w-4 h-4 bg-neon-purple rounded-full animate-ping shadow-neon-purple" style="animation-delay: 1s"></div>
+      </div>
     </div>
 
-    <!-- Error Display -->
+    <!-- Error Display with Neon Styling -->
     {#if errorMessage}
-      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-        <strong>Error:</strong> {errorMessage}
+      <div class="glass-morphism neon-border rounded-2xl p-6 mb-8 border-red-500 bg-red-500/10 animate-slide-in-left">
+        <div class="flex items-center space-x-3">
+          <div class="text-4xl animate-bounce">⚠️</div>
+          <div>
+            <strong class="text-red-400 text-xl">System Alert:</strong>
+            <p class="text-red-300 text-lg mt-1">{errorMessage}</p>
+          </div>
+        </div>
       </div>
     {/if}
 
-    <!-- File Upload Section -->
-    <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
-      <h2 class="text-2xl font-semibold mb-4">Upload Audio File</h2>
+    <!-- File Upload Section with Holographic Effects -->
+    <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
+      <div class="flex items-center space-x-4 mb-8">
+        <div class="text-6xl animate-bounce-slow">🎤</div>
+        <div>
+          <h2 class="text-4xl font-bold text-glow-cyan mb-2">Upload Audio File</h2>
+          <p class="text-xl text-white/80">Drag & drop or click to select your audio masterpiece</p>
+        </div>
+      </div>
 
       <FileUpload
         on:fileUploaded={handleFileUploaded}
@@ -218,48 +251,94 @@
       />
 
       {#if audioFileFromUser}
-        <div class="mt-4 p-4 bg-green-50 rounded">
-          <p class="text-green-800">
-            ✅ File ready: {audioFileFromUser.name} ({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)
-          </p>
+        <div class="mt-8 p-6 glass-morphism rounded-2xl border-2 border-neon-green/50 shadow-neon-green animate-fade-in-up">
+          <div class="flex items-center space-x-4">
+            <div class="text-4xl animate-spin-slow">💾</div>
+            <div>
+              <p class="text-2xl font-bold text-glow-green">
+                ✅ File Locked & Loaded!
+              </p>
+              <p class="text-lg text-green-300">
+                📁 {audioFileFromUser.name} 
+                <span class="text-neon-cyan">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </p>
+            </div>
+          </div>
         </div>
       {/if}
     </div>
 
-    <!-- Processing Section -->
+    <!-- Processing Section with Cyber Styling -->
     {#if audioFileFromUser && !isProcessingTranscription}
-      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
-        <h2 class="text-2xl font-semibold mb-4">Start Transcription</h2>
-
-        <button
-          on:click={startTranscriptionProcess}
-          class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-blue-500/50 transition-all duration-300 transform hover:scale-105"
-          disabled={isProcessingTranscription}
-        >
-          🚀 Process with Multiple AI Services
-        </button>
+      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
+        <div class="text-center">
+          <div class="text-8xl mb-6 animate-float">🚀</div>
+          <h2 class="text-4xl font-bold text-glow-purple mb-6">Ready for Liftoff!</h2>
+          
+          <button
+            on:click={startTranscriptionProcess}
+            class="btn-cyber text-white font-bold py-6 px-12 rounded-2xl text-2xl transform transition-all duration-300 shadow-2xl relative z-10"
+            disabled={isProcessingTranscription}
+          >
+            <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
+          </button>
+          
+          <p class="text-lg text-white/70 mt-4 animate-pulse">
+            Powered by Whisper • AssemblyAI • Deepgram
+          </p>
+        </div>
       </div>
     {/if}
 
-    <!-- Progress Section -->
+    <!-- Progress Section with Dynamic Effects -->
     {#if isProcessingTranscription}
-      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 mb-8 border border-white/20 hover:shadow-purple-500/25 transition-all duration-300">
-        <h2 class="text-2xl font-semibold mb-4">Processing...</h2>
+      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-left">
+        <div class="text-center">
+          <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
+          <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Brains Working...</h2>
 
-        <ProgressBar progress={uploadProgress} />
+          <ProgressBar progress={uploadProgress} />
 
-        <p class="text-gray-600 mt-2">
-          Processing your audio with Whisper, AssemblyAI, and Deepgram...
-        </p>
+          <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-morphism rounded-xl p-4 border border-neon-cyan/30">
+              <div class="text-3xl mb-2 animate-bounce">🤖</div>
+              <p class="text-neon-cyan font-bold">Whisper AI</p>
+              <p class="text-white/70">Analyzing...</p>
+            </div>
+            <div class="glass-morphism rounded-xl p-4 border border-neon-pink/30">
+              <div class="text-3xl mb-2 animate-bounce" style="animation-delay: 0.2s">🧠</div>
+              <p class="text-neon-pink font-bold">AssemblyAI</p>
+              <p class="text-white/70">Processing...</p>
+            </div>
+            <div class="glass-morphism rounded-xl p-4 border border-neon-purple/30">
+              <div class="text-3xl mb-2 animate-bounce" style="animation-delay: 0.4s">⚡</div>
+              <p class="text-neon-purple font-bold">Deepgram</p>
+              <p class="text-white/70">Computing...</p>
+            </div>
+          </div>
+        </div>
       </div>
     {/if}
 
-    <!-- Results Section -->
+    <!-- Results Section with Spectacular Effects -->
     {#if transcriptionResults.length > 0}
-      <div class="bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl p-8 border border-white/20 hover:shadow-green-500/25 transition-all duration-300">
-        <h2 class="text-2xl font-semibold mb-4">Transcription Results</h2>
+      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green animate-slide-in-right">
+        <div class="text-center mb-8">
+          <div class="text-8xl mb-4 animate-bounce-slow">🎯</div>
+          <h2 class="text-4xl font-bold text-glow-green">Transcription Complete!</h2>
+        </div>
 
         <ResultsDisplay results={transcriptionResults} />
+        
+        <!-- Action Buttons -->
+        <div class="flex justify-center space-x-6 mt-8">
+          <button 
+            on:click={() => window.location.reload()}
+            class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
+          >
+            🔄 Process Another File
+          </button>
+        </div>
       </div>
     {/if}
 
@@ -267,3 +346,121 @@
 </main>
 
 <!-- ========= REGENERATION BOUNDARY END: UI Template ========= -->
+
+<style>
+  /* Ensure custom animations and effects are applied */
+  :global(.animate-glow-pulse) {
+    animation: glow-pulse 2s ease-in-out infinite alternate !important;
+  }
+  
+  :global(.animate-neon-flicker) {
+    animation: neon-flicker 1.5s ease-in-out infinite alternate !important;
+  }
+  
+  :global(.animate-float) {
+    animation: float 4s ease-in-out infinite !important;
+  }
+  
+  :global(.animate-fade-in-up) {
+    animation: fade-in-up 0.8s ease-out !important;
+  }
+  
+  :global(.animate-slide-in-left) {
+    animation: slide-in-left 0.6s ease-out !important;
+  }
+  
+  :global(.animate-slide-in-right) {
+    animation: slide-in-right 0.6s ease-out !important;
+  }
+  
+  :global(.animate-bounce-slow) {
+    animation: bounce 2s infinite !important;
+  }
+  
+  :global(.animate-spin-slow) {
+    animation: spin 3s linear infinite !important;
+  }
+  
+  /* Enhanced background with moving gradient */
+  main {
+    background: linear-gradient(45deg, #0f0f23, #1a0033, #330066, #0d1b2a, #1a0633, #2d1b4e);
+    background-size: 600% 600%;
+    animation: gradient-shift 8s ease infinite;
+  }
+  
+  /* Particle effects */
+  .particle {
+    width: 3px;
+    height: 3px;
+    background: #00ffff;
+    box-shadow: 0 0 10px #00ffff;
+    border-radius: 50%;
+    position: absolute;
+    animation: particle-float 8s linear infinite;
+  }
+  
+  @keyframes glow-pulse {
+    0%, 100% { 
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3);
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.6);
+    }
+    50% { 
+      box-shadow: 0 0 40px rgba(255, 0, 128, 0.8), 0 0 80px rgba(255, 0, 128, 0.4);
+      text-shadow: 0 0 20px rgba(255, 0, 128, 1), 0 0 40px rgba(255, 0, 128, 0.8);
+    }
+  }
+  
+  @keyframes neon-flicker {
+    0%, 100% { 
+      opacity: 1;
+      text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+    }
+    50% { 
+      opacity: 0.8;
+      text-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor;
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+  }
+  
+  @keyframes fade-in-up {
+    0% { opacity: 0; transform: translateY(30px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes slide-in-left {
+    0% { opacity: 0; transform: translateX(-50px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes slide-in-right {
+    0% { opacity: 0; transform: translateX(50px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  @keyframes particle-float {
+    0% {
+      transform: translateY(100vh) translateX(0) rotate(0deg);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100vh) translateX(50px) rotate(360deg);
+      opacity: 0;
+    }
+  }
+</style>
