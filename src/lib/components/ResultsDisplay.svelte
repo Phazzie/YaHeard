@@ -118,6 +118,7 @@ let activeTab = 'overview';
         </div>
       </div>
     {/if}
+    {/if}
 
     {#if activeTab === "detailed"}
       <!-- Individual Results -->
@@ -166,6 +167,8 @@ let activeTab = 'overview';
         </button>
       </div>
     </div>
+
+    {/if}
 
   </div>
 {:else}
