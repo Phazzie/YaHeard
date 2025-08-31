@@ -24,8 +24,6 @@
   export let results: TranscriptionResult[] = [];
   export let consensus: ConsensusResult | null = null;
 
-let activeTab = 'overview';|export let consensus: ConsensusResult | null = null;
-
 let activeTab = 'overview';
 
   // ========= REGENERATION BOUNDARY END: Component Props =========
@@ -101,8 +99,8 @@ let activeTab = 'overview';
 
     <!-- Tab Navigation -->
     <div class='flex space-x-1 bg-white/5 backdrop-blur-lg rounded-lg p-1 border border-white/10'>
-      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "overview" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'overview'}>ðŸŠ Overview</button>
-      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "detailed" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'detailed'}>ðŸŽ Detailed</button>
+      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "overview" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'overview'}>ï¿½ Overview</button>
+      <button class='flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 {activeTab === "detailed" ? "bg-white/20 text-white shadow-lg" : "text-gray-300 hover:text-white hover:bg-white/10"}' on:click={() => activeTab = 'detailed'}>ï¿½ Detailed</button>
     </div>
 
     {#if activeTab === "overview"}
