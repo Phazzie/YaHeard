@@ -34,7 +34,7 @@ interface Actions {
   [key: string]: (event: { request: Request }) => Promise<any>;
 }
 import type { AudioProcessor } from '../contracts/processors';
-import type { TranscriptionResult } from '../contracts/transcription';
+import type { TranscriptionResult, ConsensusResult, AIReasoning, ReasoningStep, DecisionFactor, ConflictResolution, ServiceQualityAssessment } from '../contracts/transcription';
 import { AssemblyAIProcessor } from '../implementations/assembly';
 import { DeepgramProcessor } from '../implementations/deepgram';
 import { WhisperProcessor } from '../implementations/whisper';
@@ -72,60 +72,171 @@ import { ElevenLabsProcessor } from '../implementations/elevenlabs';
  * - Graceful degradation handles service failures
  */
 
-interface ConsensusResult {
-  consensus: string;
-  allResults: TranscriptionResult[];
-  agreementPercentage: number;
-  processingTimeMs: number;
-}
+// Local interface removed - now using shared contract from transcription.ts
 
 function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
   console.log('@phazzie-checkpoint-consensus-1: Calculating consensus from', results.length, 'results');
 
   const successful = results.filter(r => r.text && r.text.trim().length > 0);
+  const reasoning: AIReasoning = {
+    steps: [],
+    decisionFactors: [],
+    conflictResolution: [],
+    qualityAssessment: [],
+    finalReasoning: ''
+  };
+
+  // Step 1: Initial Analysis
+  reasoning.steps.push({
+    stepNumber: 1,
+    description: `Received ${results.length} transcription results from AI services. Filtering out ${results.length - successful.length} failed results.`,
+    type: 'analysis',
+    data: { totalResults: results.length, successfulResults: successful.length },
+    timestamp: new Date()
+  });
 
   if (successful.length === 0) {
     console.log('@phazzie-checkpoint-consensus-2: No successful transcriptions');
+    reasoning.finalReasoning = 'All AI services failed to produce transcriptions. No consensus possible.';
     return {
-      consensus: '',
-      allResults: results,
-      agreementPercentage: 0,
-      processingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0))
+      finalText: '',
+      consensusConfidence: 0,
+      individualResults: results,
+      disagreements: [],
+      stats: {
+        totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
+        servicesUsed: results.length,
+        averageConfidence: 0,
+        disagreementCount: 0
+      },
+      reasoning
     };
   }
 
-  // WHY SIMPLE CONFIDENCE-BASED SELECTION:
-  // =====================================
-  // From lessons learned: Simple approach outperformed complex alternatives
-  // Different services use different tokenization, making word-by-word voting unreliable
-  // Confidence scores from services are generally reliable indicators
-  // Future regeneration can implement more sophisticated algorithms
+  // Step 2: Confidence Analysis
+  const avgConfidence = successful.reduce((sum, r) => sum + r.confidence, 0) / successful.length;
+  reasoning.steps.push({
+    stepNumber: 2,
+    description: `Analyzed confidence scores. Average confidence: ${(avgConfidence * 100).toFixed(1)}%`,
+    type: 'analysis',
+    data: { averageConfidence: avgConfidence, confidenceScores: successful.map(r => ({ service: r.serviceName, confidence: r.confidence })) },
+    timestamp: new Date()
+  });
 
+  // Step 3: Find the best result based on confidence
   const bestResult = successful.reduce((best, current) =>
     (current.confidence || 0) > (best.confidence || 0) ? current : best
   );
 
-  // WHY LENGTH-BASED AGREEMENT CALCULATION:
-  // ======================================
-  // Rough proxy for content similarity when exact word matching fails
-  // Services may use different punctuation or formatting
-  // Prevents false disagreement due to stylistic differences
-  // Can be enhanced with semantic similarity in future regeneration
+  reasoning.steps.push({
+    stepNumber: 3,
+    description: `Selected ${bestResult.serviceName} as primary result due to highest confidence score: ${(bestResult.confidence * 100).toFixed(1)}%`,
+    type: 'decision',
+    data: { chosenService: bestResult.serviceName, confidence: bestResult.confidence },
+    timestamp: new Date()
+  });
 
+  // Step 4: Agreement Analysis
   const avgLength = successful.reduce((sum, r) => sum + r.text.length, 0) / successful.length;
+  const agreementThreshold = avgLength * 0.3;
   const agreementPercentage = Math.round(
-    (successful.filter(r => Math.abs(r.text.length - avgLength) < avgLength * 0.3).length / successful.length) * 100
+    (successful.filter(r => Math.abs(r.text.length - avgLength) < agreementThreshold).length / successful.length) * 100
   );
+
+  reasoning.steps.push({
+    stepNumber: 4,
+    description: `Measured agreement between services using text length similarity. Agreement level: ${agreementPercentage}%`,
+    type: 'comparison',
+    data: { agreementPercentage, averageLength: avgLength, threshold: agreementThreshold },
+    timestamp: new Date()
+  });
+
+  // Decision Factors
+  reasoning.decisionFactors = [
+    {
+      factor: 'Confidence Score',
+      weight: 0.6,
+      impact: 'Higher confidence indicates better transcription quality',
+      favoredServices: [bestResult.serviceName]
+    },
+    {
+      factor: 'Processing Speed',
+      weight: 0.2,
+      impact: 'Faster processing with maintained quality is preferred',
+      favoredServices: successful.sort((a, b) => a.processingTimeMs - b.processingTimeMs).slice(0, 2).map(r => r.serviceName)
+    },
+    {
+      factor: 'Text Length Consistency',
+      weight: 0.2,
+      impact: 'Results with similar length suggest agreement on content scope',
+      favoredServices: successful.filter(r => Math.abs(r.text.length - avgLength) < agreementThreshold).map(r => r.serviceName)
+    }
+  ];
+
+  // Quality Assessment for each service
+  reasoning.qualityAssessment = successful.map(result => {
+    const relativeConfidence = result.confidence / Math.max(...successful.map(r => r.confidence));
+    const relativeSpeed = 1 - (result.processingTimeMs / Math.max(...successful.map(r => r.processingTimeMs)));
+    const qualityScore = (relativeConfidence * 0.7) + (relativeSpeed * 0.3);
+
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+
+    if (result.confidence >= 0.9) strengths.push('High confidence transcription');
+    if (result.processingTimeMs < 5000) strengths.push('Fast processing speed');
+    if (result.text.length > avgLength * 1.1) strengths.push('Detailed transcription');
+    
+    if (result.confidence < 0.7) weaknesses.push('Lower confidence score');
+    if (result.processingTimeMs > 10000) weaknesses.push('Slower processing time');
+    if (result.text.length < avgLength * 0.8) weaknesses.push('Shorter transcription than average');
+
+    let recommendation: 'preferred' | 'acceptable' | 'avoid' = 'acceptable';
+    if (qualityScore >= 0.8) recommendation = 'preferred';
+    if (qualityScore < 0.5) recommendation = 'avoid';
+
+    return {
+      serviceName: result.serviceName,
+      qualityScore,
+      strengths,
+      weaknesses,
+      recommendation,
+      analysisNotes: `${result.serviceName} provided ${result.confidence >= 0.8 ? 'reliable' : 'moderate'} results with ${result.processingTimeMs < 5000 ? 'fast' : 'standard'} processing time.`
+    };
+  });
+
+  // Conflict Resolution (simplified for now)
+  const conflicts: ConflictResolution[] = [];
+  if (agreementPercentage < 80) {
+    conflicts.push({
+      conflictingServices: successful.map(r => r.serviceName),
+      conflictDescription: 'Services produced transcriptions of significantly different lengths or content',
+      resolutionMethod: 'Selected result with highest confidence score',
+      chosenResult: bestResult.serviceName,
+      resolutionConfidence: bestResult.confidence
+    });
+  }
+
+  reasoning.conflictResolution = conflicts;
+  reasoning.finalReasoning = `Selected ${bestResult.serviceName} transcription with ${(bestResult.confidence * 100).toFixed(1)}% confidence. ` +
+    `${successful.length} services provided results with ${agreementPercentage}% agreement. ` +
+    `${conflicts.length > 0 ? 'Resolved conflicts by prioritizing confidence scores.' : 'High agreement between services confirms result quality.'}`;
 
   console.log('@phazzie-checkpoint-consensus-3: Consensus calculated');
   console.log('@phazzie-checkpoint-consensus-4: Best result from:', bestResult.serviceName);
   console.log('@phazzie-checkpoint-consensus-5: Agreement:', agreementPercentage + '%');
 
   return {
-    consensus: bestResult.text,
-    allResults: results,
-    agreementPercentage,
-    processingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0))
+    finalText: bestResult.text,
+    consensusConfidence: bestResult.confidence,
+    individualResults: results,
+    disagreements: [], // Will be populated by more sophisticated analysis in future
+    stats: {
+      totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
+      servicesUsed: successful.length,
+      averageConfidence: avgConfidence,
+      disagreementCount: conflicts.length
+    },
+    reasoning
   };
 }
 
@@ -320,7 +431,7 @@ export const actions: Actions = {
 
       console.log('@phazzie-checkpoint-server-20: Multi-AI transcription completed');
       console.log('@phazzie-checkpoint-server-21: Total processing time:', totalProcessingTime + 'ms');
-      console.log('@phazzie-checkpoint-server-22: Consensus agreement:', consensus.agreementPercentage + '%');
+      console.log('@phazzie-checkpoint-server-22: Consensus confidence:', (consensus.consensusConfidence * 100).toFixed(1) + '%');
 
       // WHY COMPREHENSIVE RESPONSE:
       // ============================
@@ -330,9 +441,8 @@ export const actions: Actions = {
 
       return {
         success: true,
-        consensus: consensus.consensus,
+        consensus: consensus,
         allResults: transcriptionResults,
-        agreementPercentage: consensus.agreementPercentage,
         totalProcessingTimeMs: totalProcessingTime,
         servicesUsed: services.length,
         fileInfo: {

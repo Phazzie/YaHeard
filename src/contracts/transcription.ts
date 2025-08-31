@@ -171,14 +171,16 @@ export interface TranscriptionResult {
  * - individualResults: All the AI results used for comparison
  * - disagreements: Where AIs disagreed (for manual review)
  * - stats: Performance and quality metrics
+ * - reasoning: AI thought process and decision-making logic
  *
  * ARCHITECTURAL BENEFIT:
  * ======================
- * By including individualResults, users can see:
+ * By including individualResults and reasoning, users can see:
  * 1. Which AI services were used
  * 2. How each performed
  * 3. Where they disagreed
  * 4. Why the consensus was chosen
+ * 5. Step-by-step reasoning process
  */
 export interface ConsensusResult {
   /** The final consensus transcription text */
@@ -195,6 +197,9 @@ export interface ConsensusResult {
 
   /** Processing statistics */
   stats: ConsensusStats;
+
+  /** AI reasoning and thought process */
+  reasoning: AIReasoning;
 }
 
 /**
@@ -268,6 +273,137 @@ export interface ConsensusStats {
 
   /** Number of disagreements found between services */
   disagreementCount: number;
+}
+
+/**
+ * =============================================================================
+ * AI REASONING - CAPTURING THE THOUGHT PROCESS
+ * =============================================================================
+ *
+ * WHAT THIS REPRESENTS:
+ * =====================
+ * The step-by-step reasoning process used by the AI consensus engine
+ * to arrive at the final transcription result.
+ *
+ * WHY THESE FIELDS:
+ * =================
+ * - steps: Sequential reasoning steps taken during consensus
+ * - decisionFactors: What factors influenced the final decision
+ * - conflictResolution: How disagreements were resolved
+ * - qualityAssessment: Quality evaluation of each service
+ * - finalReasoning: Summary of why this consensus was chosen
+ *
+ * ARCHITECTURAL BENEFIT:
+ * ======================
+ * This provides transparency into:
+ * 1. How the AI makes decisions
+ * 2. Why certain results were preferred
+ * 3. What logic drives consensus building
+ * 4. How conflicts are resolved
+ */
+export interface AIReasoning {
+  /** Sequential steps in the reasoning process */
+  steps: ReasoningStep[];
+
+  /** Factors that influenced the final decision */
+  decisionFactors: DecisionFactor[];
+
+  /** How conflicts between services were resolved */
+  conflictResolution: ConflictResolution[];
+
+  /** Quality assessment of each AI service */
+  qualityAssessment: ServiceQualityAssessment[];
+
+  /** Final reasoning summary */
+  finalReasoning: string;
+}
+
+/**
+ * =============================================================================
+ * REASONING STEP - INDIVIDUAL THOUGHT PROCESS STEP
+ * =============================================================================
+ */
+export interface ReasoningStep {
+  /** Step number in the process */
+  stepNumber: number;
+
+  /** Description of what happened in this step */
+  description: string;
+
+  /** Type of reasoning applied */
+  type: 'analysis' | 'comparison' | 'weighting' | 'decision' | 'validation';
+
+  /** Data or results from this step */
+  data?: Record<string, any>;
+
+  /** Timestamp when this step completed */
+  timestamp: Date;
+}
+
+/**
+ * =============================================================================
+ * DECISION FACTOR - WHAT INFLUENCED THE CHOICE
+ * =============================================================================
+ */
+export interface DecisionFactor {
+  /** Name of the factor */
+  factor: string;
+
+  /** Weight/importance of this factor (0.0 to 1.0) */
+  weight: number;
+
+  /** How this factor influenced the decision */
+  impact: string;
+
+  /** Which services this factor favored */
+  favoredServices: string[];
+}
+
+/**
+ * =============================================================================
+ * CONFLICT RESOLUTION - HOW DISAGREEMENTS WERE HANDLED
+ * =============================================================================
+ */
+export interface ConflictResolution {
+  /** Services that disagreed */
+  conflictingServices: string[];
+
+  /** What they disagreed about */
+  conflictDescription: string;
+
+  /** How the conflict was resolved */
+  resolutionMethod: string;
+
+  /** Which result was chosen and why */
+  chosenResult: string;
+
+  /** Confidence in the resolution (0.0 to 1.0) */
+  resolutionConfidence: number;
+}
+
+/**
+ * =============================================================================
+ * SERVICE QUALITY ASSESSMENT - AI SERVICE PERFORMANCE EVALUATION
+ * =============================================================================
+ */
+export interface ServiceQualityAssessment {
+  /** Name of the AI service */
+  serviceName: string;
+
+  /** Overall quality score (0.0 to 1.0) */
+  qualityScore: number;
+
+  /** Specific strengths of this service */
+  strengths: string[];
+
+  /** Areas where this service struggled */
+  weaknesses: string[];
+
+  /** Recommendation for future use */
+  recommendation: 'preferred' | 'acceptable' | 'avoid';
+
+  /** Detailed analysis notes */
+  analysisNotes: string;
 }
 
 /**
