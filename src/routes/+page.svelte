@@ -10,8 +10,10 @@
   // ========= REGENERATION BOUNDARY START: Imports =========
   // @phazzie: This section can be regenerated independently
   // @contract: Must import required components and types
-  // @dependencies: None
+  // @dependencies: SvelteKit form handling
 
+  import { enhance } from '$app/forms';
+  import { page } from '$app/stores';
   import FileUpload from '$lib/components/FileUpload.svelte';
   import ResultsDisplay from '$lib/components/ResultsDisplay.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
@@ -21,13 +23,54 @@
   // ========= REGENERATION BOUNDARY START: State Management =========
   // @phazzie: This section can be regenerated independently
   // @contract: Must maintain application state
-  // @dependencies: None
+  // @dependencies: SvelteKit's page store
 
-  let audioFileFromUser: File | null = null;
-  let isProcessingTranscription = false;
-  let transcriptionResults: any[] = [];
-  let uploadProgress = 0;
-  let errorMessage = '';
+  let audioFile: File | null = null;
+  let isProcessing = false;
+  let uploadStatus: 'idle' | 'uploading' | 'processing' | 'success' | 'error' = 'idle';
+  let jobId: string | null = null;
+
+  // Reactive statement to handle form submission state
+  $: formError = $page.form?.error || jobStatus?.error;
+  $: formResults = jobStatus?.allResults;
+  $: consensus = jobStatus?.consensus;
+
+  let jobStatus: any = null;
+  let pollingInterval: any = null;
+  const POLLING_TIMEOUT_MS = 300000; // 5 minutes
+
+  // Reactive block to control polling based on application state
+  $: {
+    if (uploadStatus === 'processing' && jobId && !pollingInterval) {
+      const startTime = Date.now();
+      pollingInterval = setInterval(async () => {
+        if (Date.now() - startTime > POLLING_TIMEOUT_MS) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          uploadStatus = 'error';
+          jobStatus = { error: 'Polling timed out after 5 minutes.' };
+          isProcessing = false;
+          return;
+        }
+
+        console.log(`@phazzie-checkpoint-5: Polling for job ${jobId}`);
+        const response = await fetch(`/api/status/${encodeURIComponent(jobId)}`);
+        const data = await response.json();
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          console.log(`@phazzie-checkpoint-6: Job ${jobId} finished with status: ${data.status}`);
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+          jobStatus = data;
+          uploadStatus = data.status === 'completed' ? 'success' : 'error';
+          isProcessing = false;
+        }
+      }, 3000);
+    } else if (uploadStatus !== 'processing' && pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  }
 
   // ========= REGENERATION BOUNDARY END: State Management =========
 
@@ -36,89 +79,26 @@
   // @contract: Must handle file upload and update state
   // @dependencies: FileUpload component
 
-  async function handleFileUploaded(event: CustomEvent) {
+  function handleFileUploaded(event: CustomEvent) {
     console.log('@phazzie-checkpoint-1: File upload event received');
-
     try {
-      const uploadedFile = event.detail.file;
-      audioFileFromUser = uploadedFile;
-
-      console.log('@phazzie-checkpoint-2: File stored in state');
-      console.log('@phazzie-checkpoint-3: Ready for transcription processing');
-
-      // Reset any previous errors
-      errorMessage = '';
-
+      audioFile = event.detail.file;
+      uploadStatus = 'idle';
+      jobId = null;
+      console.log('@phazzie-checkpoint-2: File stored in state, ready for form submission');
     } catch (error) {
-      console.error('@phazzie-error: File upload handling failed');
-      errorMessage = 'REGENERATE_NEEDED: File upload handler';
-      console.error(error);
+      console.error('@phazzie-error: File upload handling failed', error);
+      uploadStatus = 'error';
     }
   }
 
   // ========= REGENERATION BOUNDARY END: File Upload Handler =========
-
-  // ========= REGENERATION BOUNDARY START: Transcription Processing =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must process audio file and get transcription results
-  // @dependencies: audioFileFromUser state
-
-  async function startTranscriptionProcess() {
-    console.log('@phazzie-checkpoint-4: Starting transcription process');
-
-    if (!audioFileFromUser) {
-      errorMessage = 'No file selected';
-      return;
-    }
-
-    try {
-      isProcessingTranscription = true;
-      uploadProgress = 0;
-
-      console.log('@phazzie-checkpoint-5: Sending file to API');
-
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        uploadProgress += 10;
-        if (uploadProgress >= 100) {
-          clearInterval(progressInterval);
-        }
-      }, 500);
-
-      // Call the transcription API
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: new FormData([['audio', audioFileFromUser]])
-      });
-
-      clearInterval(progressInterval);
-      uploadProgress = 100;
-
-      if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      transcriptionResults = result.results || [];
-
-      console.log('@phazzie-checkpoint-6: Transcription completed successfully');
-
-    } catch (error) {
-      console.error('@phazzie-error: Transcription processing failed');
-      errorMessage = 'REGENERATE_NEEDED: Transcription processing';
-      console.error(error);
-    } finally {
-      isProcessingTranscription = false;
-    }
-  }
-
-  // ========= REGENERATION BOUNDARY END: Transcription Processing =========
 </script>
 
 <!-- ========= REGENERATION BOUNDARY START: UI Template ========= -->
 <!-- @phazzie: This section can be regenerated independently -->
 <!-- @contract: Must render the main application UI -->
-<!-- @dependencies: State variables and event handlers -->
+<!-- @dependencies: State variables and SvelteKit form handling -->
 
 <main class="min-h-screen bg-gray-50 py-8">
   <div class="max-w-4xl mx-auto px-4">
@@ -129,69 +109,126 @@
         Multi-AI Transcription Engine
       </h1>
       <p class="text-lg text-gray-600">
-        Upload audio files and get consensus transcriptions from multiple AI services
+        Upload an audio file to get a consensus transcription from multiple AI services.
       </p>
     </div>
 
     <!-- Error Display -->
-    {#if errorMessage}
+    {#if formError || uploadStatus === 'error'}
       <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-        <strong>Error:</strong> {errorMessage}
+        <strong>Error:</strong> {formError || 'An unknown error occurred during upload.'}
       </div>
     {/if}
 
-    <!-- File Upload Section -->
-    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-      <h2 class="text-2xl font-semibold mb-4">Upload Audio File</h2>
+    <!-- Form for Transcription -->
+    <form
+      method="POST"
+      action="?/default"
+      enctype="multipart/form-data"
+      use:enhance={({ form, data, action, cancel }) => {
+        isProcessing = true;
+        uploadStatus = 'uploading';
 
-      <FileUpload
-        on:fileUploaded={handleFileUploaded}
-        disabled={isProcessingTranscription}
-      />
+        return async ({ result, update }) => {
+          if (result.type === 'success' && result.data?.uploadUrl) {
+            console.log('@phazzie-checkpoint-3: Received blob upload URL. Starting direct upload.');
+            try {
+              const uploadResponse = await fetch(result.data.uploadUrl, {
+                method: 'PUT',
+                body: audioFile
+              });
 
-      {#if audioFileFromUser}
-        <div class="mt-4 p-4 bg-green-50 rounded">
-          <p class="text-green-800">
-            ✅ File ready: {audioFileFromUser.name} ({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)
-          </p>
+              if (!uploadResponse.ok) {
+                throw new Error('Direct blob upload failed.');
+              }
+
+              console.log('@phazzie-checkpoint-4: Blob upload successful.');
+              jobId = result.data.pathname;
+              uploadStatus = 'processing';
+
+              // Trigger the background processing job, but don't wait for it.
+              fetch('/api/process-transcription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pathname: jobId })
+              });
+
+            } catch (err) {
+              console.error('@phazzie-error: Blob upload failed', err);
+              uploadStatus = 'error';
+            }
+          } else {
+             // Handle server action failure
+             uploadStatus = 'error';
+          }
+          await update();
+          isProcessing = false;
+        };
+      }}
+    >
+      <!-- File Upload Section -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-2xl font-semibold mb-4">1. Upload Audio File</h2>
+        <FileUpload on:fileUploaded={handleFileUploaded} disabled={isProcessing} name="audio" />
+        {#if audioFile}
+          <div class="mt-4 p-4 bg-green-50 rounded">
+            <p class="text-green-800">
+              ✅ File ready: {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
+            </p>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Processing Section -->
+      {#if audioFile}
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 class="text-2xl font-semibold mb-4">2. Start Transcription</h2>
+          <button
+            type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 disabled:bg-gray-400"
+            disabled={isProcessing || !audioFile}
+          >
+            {#if isProcessing}
+              <span>⏳ {#if uploadStatus === 'uploading'}Uploading...{:else}Processing...{/if}</span>
+            {:else}
+              <span>🚀 Get Upload Link & Process</span>
+            {/if}
+          </button>
         </div>
       {/if}
-    </div>
-
-    <!-- Processing Section -->
-    {#if audioFileFromUser && !isProcessingTranscription}
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-semibold mb-4">Start Transcription</h2>
-
-        <button
-          on:click={startTranscriptionProcess}
-          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
-          disabled={isProcessingTranscription}
-        >
-          🚀 Process with Multiple AI Services
-        </button>
-      </div>
-    {/if}
+    </form>
 
     <!-- Progress Section -->
-    {#if isProcessingTranscription}
+    {#if isProcessing}
       <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-2xl font-semibold mb-4">Processing...</h2>
-
-        <ProgressBar progress={uploadProgress} />
-
+        <h2 class="text-2xl font-semibold mb-4">
+          {#if uploadStatus === 'uploading'}
+            Uploading File...
+          {:else if uploadStatus === 'processing'}
+            File Uploaded! Starting AI processing...
+          {:else}
+            Processing...
+          {/if}
+        </h2>
+        <ProgressBar progress={uploadStatus === 'uploading' ? 50 : 100} />
         <p class="text-gray-600 mt-2">
-          Processing your audio with Whisper, AssemblyAI, and Deepgram...
+           {#if uploadStatus === 'uploading'}
+            Your file is being uploaded directly to secure storage.
+          {:else if uploadStatus === 'processing'}
+            The file has been received. A background job will now start to process it with multiple AI services. You can safely close this window; we will implement status checking next.
+            <br><strong>Job ID:</strong> {jobId}
+          {:else}
+            Please wait.
+          {/if}
         </p>
       </div>
     {/if}
 
     <!-- Results Section -->
-    {#if transcriptionResults.length > 0}
+    {#if uploadStatus === 'success' && formResults}
       <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-semibold mb-4">Transcription Results</h2>
-
-        <ResultsDisplay results={transcriptionResults} />
+        <ResultsDisplay results={formResults} {consensus} />
       </div>
     {/if}
 

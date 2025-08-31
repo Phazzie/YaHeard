@@ -1,0 +1,178 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { get } from '@vercel/blob';
+import { kv } from '@vercel/kv';
+
+// Import AI service contracts and implementations
+import type { AudioProcessor } from '../../../contracts/processors';
+import type { TranscriptionResult } from '../../../contracts/transcription';
+import { AssemblyAIProcessor } from '../../../implementations/assembly';
+import { DeepgramProcessor } from '../../../implementations/deepgram';
+import { WhisperProcessor } from '../../../implementations/whisper';
+import { GeminiService } from '../../../lib/services/gemini';
+import { ElevenLabsProcessor } from '../../../implementations/elevenlabs';
+
+// ========= REGENERATION BOUNDARY START: Consensus Algorithm =========
+// @phazzie: This algorithm can be completely regenerated
+// @contract: Must take array of results and return consensus
+// @dependencies: Levenshtein distance algorithm
+
+/**
+ * Calculates the Levenshtein distance between two strings.
+ * @param a The first string.
+ * @param b The second string.
+ * @returns The Levenshtein distance.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+  for (let i = 0; i <= a.length; i += 1) {
+    matrix[0][i] = i;
+  }
+  for (let j = 0; j <= b.length; j += 1) {
+    matrix[j][0] = j;
+  }
+  for (let j = 1; j <= b.length; j += 1) {
+    for (let i = 1; i <= a.length; i += 1) {
+      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + substitutionCost // substitution
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Calculates the consensus transcription from multiple AI results using Levenshtein distance.
+ * This is more robust than relying on self-reported confidence scores.
+ */
+function calculateConsensus(results: TranscriptionResult[]): any {
+  console.log('@phazzie-checkpoint-consensus-1: Calculating consensus from', results.length, 'results using Levenshtein distance');
+
+  const successful = results.filter(r => r.text && r.text.trim().length > 0);
+
+  if (successful.length === 0) {
+    return { consensus: '', allResults: results, agreementPercentage: 0 };
+  }
+  if (successful.length === 1) {
+    return { consensus: successful[0].text, allResults: results, agreementPercentage: 100 };
+  }
+
+  // Calculate the average Levenshtein distance for each result against all others.
+  const distances = successful.map((currentResult, currentIndex) => {
+    const otherResults = successful.filter((_, otherIndex) => currentIndex !== otherIndex);
+    const totalDistance = otherResults.reduce((sum, otherResult) => {
+      return sum + levenshteinDistance(currentResult.text, otherResult.text);
+    }, 0);
+    return { ...currentResult, avgDistance: totalDistance / otherResults.length };
+  });
+
+  // The best result is the one with the lowest average distance to all others.
+  const bestResult = distances.reduce((best, current) =>
+    current.avgDistance < best.avgDistance ? current : best
+  );
+
+  console.log(`@phazzie-checkpoint-consensus-2: Best result chosen from ${bestResult.serviceName} with avg distance ${bestResult.avgDistance}`);
+
+  // Calculate a more meaningful agreement percentage based on similarity to the consensus text.
+  const totalSimilarity = successful.reduce((sum, result) => {
+    const distance = levenshteinDistance(bestResult.text, result.text);
+    const longerLength = Math.max(bestResult.text.length, result.text.length);
+    const similarity = longerLength === 0 ? 1 : (longerLength - distance) / longerLength;
+    return sum + similarity;
+  }, 0);
+
+  const agreementPercentage = Math.round((totalSimilarity / successful.length) * 100);
+  console.log(`@phazzie-checkpoint-consensus-3: Final agreement percentage: ${agreementPercentage}%`);
+
+  return {
+    consensus: bestResult.text,
+    allResults: results,
+    agreementPercentage
+  };
+}
+
+// ========= REGENERATION BOUNDARY END: Consensus Algorithm =========
+
+export const POST: RequestHandler = async ({ request }) => {
+  try {
+    const { pathname } = await request.json();
+    if (!pathname) {
+      return json({ success: false, error: 'No pathname provided.' }, { status: 400 });
+    }
+    console.log(`@phazzie-checkpoint-bg-1: Background processing triggered for ${pathname}`);
+
+    // Set initial status in KV store
+    await kv.set(pathname, { status: 'processing', startTime: Date.now() });
+
+    // 1. Fetch the file from Vercel Blob
+    const blob = await get(pathname);
+    const audioFile = new File([await blob.blob()], pathname.split('/').pop() || 'audio.tmp');
+    console.log(`@phazzie-checkpoint-bg-2: Fetched file from blob: ${audioFile.name}`);
+
+    // 2. Run transcription services (moved logic)
+    const services: AudioProcessor[] = [];
+    if (process.env.OPENAI_API_KEY) services.push(new WhisperProcessor({ apiKey: process.env.OPENAI_API_KEY }));
+    if (process.env.ASSEMBLYAI_API_KEY) services.push(new AssemblyAIProcessor({ apiKey: process.env.ASSEMBLYAI_API_KEY }));
+    if (process.env.GEMINI_API_KEY) services.push(new GeminiService());
+    if (process.env.DEEPGRAM_API_KEY) services.push(new DeepgramProcessor({ apiKey: process.env.DEEPGRAM_API_KEY }));
+    if (process.env.ELEVENLABS_API_KEY) services.push(new ElevenLabsProcessor({ apiKey: process.env.ELEVENLABS_API_KEY }));
+
+    if (services.length === 0) {
+      await kv.set(pathname, { status: 'failed', error: 'No AI services configured.' });
+      return json({ success: false, error: 'No AI services configured.' }, { status: 500 });
+    }
+    console.log(`@phazzie-checkpoint-bg-3: Initialized ${services.length} AI services.`);
+
+    const processingStartTime = Date.now();
+    const results = await Promise.allSettled(
+      services.map(service => service.processFile(audioFile))
+    );
+
+    const transcriptionResults = results.map((result, index) => {
+      if (result.status === 'fulfilled') return result.value;
+      return {
+        id: `${services[index].serviceName.toLowerCase()}-error-${Date.now()}`,
+        serviceName: services[index].serviceName,
+        text: '',
+        confidence: 0,
+        processingTimeMs: 0,
+        timestamp: new Date(),
+        metadata: { error: 'Service completely failed' }
+      } as TranscriptionResult;
+    });
+    console.log(`@phazzie-checkpoint-bg-4: All AI processing completed.`);
+
+    // 3. Calculate consensus
+    const consensusResult = calculateConsensus(transcriptionResults);
+    console.log(`@phazzie-checkpoint-bg-5: Consensus calculated.`);
+
+    // 4. Store final result in Vercel KV
+    const finalResult = {
+      status: 'completed',
+      ...consensusResult,
+      totalProcessingTime: Date.now() - processingStartTime,
+      completedAt: Date.now()
+    };
+    await kv.set(pathname, finalResult);
+    console.log(`@phazzie-checkpoint-bg-6: Stored final result in KV store for job ${pathname}.`);
+
+    // This response is sent to the function that called it, NOT the client.
+    // The client will poll a different endpoint for the result.
+    return json({ success: true, message: `Processing finished for ${pathname}` });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('@phazzie-error-bg: Background processing failed', error);
+    // Attempt to update KV with failure status
+    try {
+      const { pathname } = await request.json();
+      if(pathname) await kv.set(pathname, { status: 'failed', error: errorMessage });
+    } catch (kvError) {
+      console.error('@phazzie-error-bg: Failed to update KV store with error state', kvError);
+    }
+    return json({ success: false, error: errorMessage }, { status: 500 });
+  }
+};

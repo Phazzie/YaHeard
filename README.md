@@ -2,35 +2,38 @@
 
 🚀 **@Phazzie Contract-Driven Development Mode ACTIVATED!**
 
-A SvelteKit application that processes audio files through multiple AI transcription services (Whisper, AssemblyAI, Deepgram) and generates consensus transcriptions for improved accuracy.
+A SvelteKit application that processes audio files through multiple AI transcription services (Whisper, AssemblyAI, Deepgram) and generates consensus transcriptions for improved accuracy. This project has been refactored to use a robust, asynchronous architecture suitable for serverless deployment on Vercel.
 
-## 🏗️ @Phazzie Architecture
+## 🏗️ Asynchronous Architecture
 
-This project follows the **@Phazzie Contract-Driven Development** methodology:
+The application now uses an asynchronous, job-based architecture to handle long-running transcription tasks without timing out.
 
-### Core Principles
-- **Contracts First**: Define interfaces before implementations
-- **Regeneration Seams**: Clear boundaries for independent regeneration
-- **Verbose Naming**: Self-documenting variable names
-- **Error Boundaries**: Comprehensive error handling with regeneration hints
+1.  **Client-Side Upload**: The user selects a file, and the frontend requests a secure upload URL from the SvelteKit backend.
+2.  **Direct Blob Storage**: The client uploads the file directly to Vercel Blob storage, bypassing serverless function payload limits.
+3.  **Background Job**: After the upload, the client triggers a Vercel Background Function to process the file.
+4.  **Polling for Results**: The client polls a status endpoint to check the job's progress and retrieve the final transcription results once they are stored in Vercel KV.
+
+This design ensures scalability and reliability.
 
 ### Project Structure
 ```
 src/
 ├── contracts/           # 📋 Interfaces that DON'T change
-│   ├── transcription.ts # Core data structures
-│   ├── processors.ts    # AI processor interfaces
-│   └── file-upload.ts   # File upload contracts
+│   ├── transcription.ts
+│   └── processors.ts
 │
 ├── implementations/     # 🔄 Can be regenerated freely
-│   ├── whisper.ts       # Whisper AI implementation
-│   ├── assembly.ts      # AssemblyAI implementation
-│   └── comparison.ts    # Consensus engine
+│   ├── whisper.ts
+│   └── assembly.ts
 │
 ├── routes/
-│   ├── +page.svelte     # Main UI with seam comments
-│   ├── +page.server.ts  # Form handling
-│   └── api/transcribe/+server.ts # API endpoint
+│   ├── +page.svelte     # Main UI with polling logic
+│   ├── +page.server.ts  # Generates signed URLs for Vercel Blob
+│   └── api/
+│       ├── process-transcription/ # Vercel Background Function
+│       │   └── +server.ts
+│       └── status/[jobId]/        # Polling endpoint for job status
+│           └── +server.ts
 │
 └── lib/components/      # Reusable UI components
     ├── FileUpload.svelte
@@ -43,6 +46,25 @@ src/
 ### Prerequisites
 - Node.js 18+
 - npm or yarn
+- Vercel account with Blob and KV stores configured.
+
+### Environment Variables
+Create a `.env` file and populate it with the required Vercel storage credentials and AI service API keys:
+```
+# Vercel Storage
+BLOB_READ_WRITE_TOKEN=
+KV_URL=
+KV_REST_API_URL=
+KV_REST_API_TOKEN=
+KV_REST_API_READ_ONLY_TOKEN=
+
+# AI Services (at least one is required)
+OPENAI_API_KEY=
+ASSEMBLYAI_API_KEY=
+DEEPGRAM_API_KEY=
+GEMINI_API_KEY=
+ELEVENLABS_API_KEY=
+```
 
 ### Installation
 ```bash
@@ -54,78 +76,19 @@ npm install
 npm run dev
 ```
 
-### Build for Production
-```bash
-npm run build
-npm run preview
-```
-
-## 🔧 @Phazzie Regeneration Guide
-
-### When Something Breaks
-1. **Check Console Logs**: Look for `@phazzie-error` messages
-2. **Identify the Seam**: Find the regeneration boundary comment
-3. **Regenerate Section**: Replace only the broken section
-4. **Test Independently**: Each section can be tested separately
-
-### Regeneration Boundaries
-Each major function is wrapped with:
-```javascript
-// ========= REGENERATION BOUNDARY START: [Section Name] ==========
-// @phazzie: This section can be regenerated independently
-// @contract: Must [describe contract]
-// @dependencies: [what must work before this]
-
-// [CODE HERE]
-
-// ========= REGENERATION BOUNDARY END: [Section Name] ==========
-```
-
-### Files That Can Be Regenerated Independently
-- `src/implementations/whisper.ts` - Complete Whisper integration
-- `src/implementations/assembly.ts` - Complete AssemblyAI integration
-- `src/implementations/comparison.ts` - Consensus algorithm
-- `src/routes/+page.svelte` sections - UI components
-- `src/routes/api/transcribe/+server.ts` sections - API logic
-
-## 📋 Contracts Overview
-
-### File Upload Contract
-```typescript
-interface FileUploadContract {
-  accept: string[]        // ['.mp3', '.wav', '.m4a', '.webm']
-  maxSize: number         // 10MB
-  onUpload: (file: File) => Promise<UploadResult>
-}
-```
-
-### AI Processor Contract
-```typescript
-interface AudioProcessor {
-  serviceName: string
-  isAvailable(): boolean
-  processFile(file: File): Promise<TranscriptionResult>
-  getCostPerMinute(): number
-}
-```
-
-## 🎯 Success Criteria
-- [x] Project runs with `npm run dev`
-- [x] File upload accepts audio files
-- [x] Clear seam points marked with `@phazzie-regeneration-point`
-- [x] Contracts defined separately from implementation
-- [x] Console logs show `@phazzie-checkpoint-X` messages
-- [x] Each major function can be regenerated independently
-
 ## 🔄 Current Status
-- **Contracts**: ✅ Defined and stable
-- **UI Components**: ✅ Working with Tailwind CSS
-- **File Upload**: ✅ Drag-and-drop with validation
-- **API Structure**: ✅ Ready for AI integrations
-- **AI Implementations**: 🔄 Placeholder (needs real API keys)
+- **Architecture**: ✅ Asynchronous, scalable, and ready for Vercel.
+- **Contracts**: ✅ Defined and stable.
+- **UI Components**: ✅ Working with polling and displays async results.
+- **File Upload**: ✅ Using Vercel Blob for large file uploads.
+- **AI Implementations**: ✅ Fully integrated into the background processing pipeline.
+- **Consensus Algorithm**: ✅ Refactored to use Levenshtein distance for robust results.
 
 ## 🚀 Deployment
-Ready for Vercel deployment with zero configuration:
+This project is architected for Vercel.
+
+1.  **Configure Project**: Set up the environment variables listed above in your Vercel project settings. Ensure Vercel Blob and KV stores are linked.
+2.  **Deploy**: Connect your Git repository to Vercel for automatic deployments.
 
 ```bash
 npm run build
@@ -133,19 +96,12 @@ npm run build
 ```
 
 ## 📝 Adding New AI Services
-1. Create new contract in `src/contracts/processors.ts`
-2. Implement in `src/implementations/[service].ts`
-3. Add to API endpoint processing pipeline
-4. Update UI to show new service
-
-## 🐛 Troubleshooting
-- **File too large**: Check `MAX_FILE_SIZE_BYTES` in contracts
-- **Unsupported format**: Check `SUPPORTED_AUDIO_FORMATS`
-- **API errors**: Look for `@phazzie-error` in console
-- **Regeneration needed**: Follow the boundary comments
+1.  Create a new implementation file in `src/implementations/` that adheres to the `AudioProcessor` interface in `src/contracts/processors.ts`.
+2.  Add the new service to the processing pipeline in `src/routes/api/process-transcription/+server.ts`.
+3.  Add the corresponding API key to your environment variables.
 
 ---
 
 **Built with ❤️ for @Phazzie's regeneration-over-debug workflow**
 
-*Time: 2025-01-29 | Status: Ready for AI API Integration*
+*Time: 2025-08-30 | Status: Refactored for Asynchronous Vercel Deployment*
