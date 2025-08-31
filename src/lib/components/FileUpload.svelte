@@ -120,7 +120,7 @@
 
     } catch (error) {
       console.error('@phazzie-error: File processing failed');
-      uploadError = 'REGENERATE_NEEDED: File processing';
+      uploadError = 'Unable to process the selected file. Please try a different audio file.';
       console.error(error);
     } finally {
       isUploading = false;

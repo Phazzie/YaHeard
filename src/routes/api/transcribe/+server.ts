@@ -122,7 +122,7 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
 
     return json({
       success: false,
-      error: 'REGENERATE_NEEDED: API processing'
+      error: 'Unable to process audio file. Please try again or contact support if the issue persists.'
     }, { status: 500 });
   }
 };
