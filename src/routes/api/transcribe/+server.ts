@@ -33,8 +33,46 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'All AI services failed to process the audio file.' }, { status: 500 });
     }
 
-    const comparisonEngine = new ConsensusComparisonEngine();
-    const consensusResult = comparisonEngine.compareTranscriptions(successfulResults);
+    let consensusResult;
+    try {
+        const comparisonEngine = new ConsensusComparisonEngine();
+        consensusResult = comparisonEngine.compareTranscriptions(successfulResults);
+    } catch (consensusError) {
+        console.warn('Consensus engine failed, using fallback.', consensusError);
+        // Fallback: pick the fastest successful result
+        const bestResult = successfulResults.reduce((best, cur) =>
+            (cur.processingTimeMs || Infinity) < (best.processingTimeMs || Infinity) ? cur : best
+        );
+
+        const withConf = successfulResults.filter(r => r.confidence !== undefined);
+        const averageConfidence = withConf.length
+            ? withConf.reduce((s, r) => s + (r.confidence ?? 0), 0) / withConf.length
+            : 0;
+
+        consensusResult = {
+            finalText: bestResult.text,
+            consensusConfidence: bestResult.confidence ?? 0,
+            individualResults: successfulResults,
+            disagreements: [],
+            stats: {
+                totalProcessingTimeMs: Math.max(...successfulResults.map(r => r.processingTimeMs || 0)),
+                servicesUsed: successfulResults.length,
+                averageConfidence: averageConfidence,
+                disagreementCount: 0
+            },
+            reasoning: {
+                finalReasoning: `Consensus algorithm failed. Fallback to fastest provider: ${bestResult.serviceName}.`,
+                steps: [{
+                    stepNumber: 1,
+                    description: 'The main consensus engine failed. Using fallback logic.',
+                    data: {
+                        selectedService: bestResult.serviceName,
+                        error: consensusError instanceof Error ? consensusError.message : String(consensusError)
+                    },
+                }]
+            }
+        };
+    }
 
     return json(consensusResult);
 

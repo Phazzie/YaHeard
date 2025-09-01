@@ -1,4 +1,4 @@
-import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats } from './transcription';
+import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning, ReasoningStep } from './transcription';
 
 /**
  * Defines the standard interface for any AI transcription service.
@@ -120,4 +120,4 @@ export interface ComparisonEngine {
 
 // --- Convenience Re-exports ---
 
-export type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats };
+export type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning, ReasoningStep };
