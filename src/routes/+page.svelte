@@ -108,12 +108,6 @@
   async function startTranscriptionProcess() {
     console.log('@phazzie-checkpoint-4: Starting transcription process');
 
-    // WHY EARLY VALIDATION:
-    // =====================
-    // Prevent API calls with invalid state
-    // Clear error messages guide user action
-    // Fail fast to improve user experience
-
     if (!audioFileFromUser) {
       errorMessage = 'No file selected';
       return;
@@ -122,39 +116,54 @@
     try {
       isProcessingTranscription = true;
       uploadProgress = 0;
+      errorMessage = '';
+      consensusResult = null;
+      transcriptionResults = [];
 
-      console.log('@phazzie-checkpoint-5: Sending file to API');
+      const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB
+      const totalChunks = Math.ceil(audioFileFromUser.size / CHUNK_SIZE);
+      const uploadId = crypto.randomUUID();
 
-      // WHY PROGRESS SIMULATION:
-      // ========================
-      // Provide immediate feedback while API processes
-      // Prevents user confusion during long operations
-      // Can be replaced with real progress in future regeneration
+      console.log(`@phazzie-checkpoint-5: Starting chunked upload with ID: ${uploadId}`);
 
-      const progressInterval = setInterval(() => {
-        uploadProgress += 10;
-        if (uploadProgress >= 100) {
-          clearInterval(progressInterval);
+      // Upload chunks
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = start + CHUNK_SIZE;
+        const chunk = audioFileFromUser.slice(start, end);
+
+        const formData = new FormData();
+        formData.append('chunk', chunk, `${audioFileFromUser.name}.part${chunkIndex}`);
+        formData.append('uploadId', uploadId);
+        formData.append('chunkIndex', chunkIndex.toString());
+        formData.append('totalChunks', totalChunks.toString());
+        formData.append('fileName', audioFileFromUser.name);
+
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Chunk upload failed with no error message.' }));
+          throw new Error(`Chunk upload failed: ${errorData.error}`);
         }
-      }, 500);
 
-      // WHY FETCH API:
-      // ==============
-      // Native browser API for HTTP requests
-      // No external dependencies required
-      // Can be easily replaced with different HTTP clients
+        uploadProgress = Math.round(((chunkIndex + 1) / totalChunks) * 99);
+      }
 
-      const formData = new FormData();
-      formData.append('audio', audioFileFromUser);
+      console.log('@phazzie-checkpoint-6: All chunks uploaded, triggering transcription');
 
-      console.log('@phazzie-debug: About to make fetch request');
+      // Trigger transcription
       const response = await fetch('/api/transcribe', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uploadId: uploadId, fileName: audioFileFromUser.name })
       });
 
-      console.log('@phazzie-debug: Fetch request completed', response.status);
-      clearInterval(progressInterval);
       uploadProgress = 100;
 
       if (!response.ok) {
@@ -165,12 +174,9 @@
 
       const result = await response.json();
       console.log('@phazzie-debug: API response received:', result);
-      
-      // API now directly returns ConsensusResult
+
       if (result && result.finalText) {
         console.log('@phazzie-debug: Consensus data:', result);
-        
-        // Extract individual results and consensus from direct response
         transcriptionResults = result.individualResults || [];
         consensusResult = result;
       } else {
@@ -179,30 +185,21 @@
         consensusResult = null;
       }
 
-      console.log('@phazzie-debug: Final transcriptionResults:', transcriptionResults);
-      console.log('@phazzie-debug: Final consensusResult:', consensusResult);
-      console.log('@phazzie-checkpoint-6: Transcription completed successfully');
+      console.log('@phazzie-checkpoint-7: Transcription completed successfully');
 
     } catch (error) {
       console.error('@phazzie-error: Transcription processing failed');
       console.error('@phazzie-debug: Full error details:', error);
       
-      // Check if it's a network error
       if (error instanceof TypeError && error.message.includes('fetch')) {
         errorMessage = 'Network error: Unable to connect to the transcription service. Please check your internet connection.';
-      } else if (error instanceof Error && error.message.includes('API call failed')) {
-        errorMessage = `Server error: ${error.message}`;
+      } else if (error instanceof Error) {
+        errorMessage = `An error occurred: ${error.message}`;
       } else {
-        errorMessage = 'Unable to process audio file. Please check your internet connection and try again.';
+        errorMessage = 'An unknown error occurred during transcription.';
       }
       console.error(error);
     } finally {
-      // WHY FINALLY BLOCK:
-      // ==================
-      // Always reset loading state
-      // Prevents UI from getting stuck in loading mode
-      // Ensures user can retry after errors
-
       isProcessingTranscription = false;
     }
   }

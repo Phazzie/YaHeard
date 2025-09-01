@@ -7,6 +7,10 @@ import { ElevenLabsProcessor } from '../../../implementations/elevenlabs';
 import { GeminiProcessor } from '../../../implementations/gemini';
 import { ConsensusComparisonEngine } from '../../../implementations/comparison';
 import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
+import { readdir, readFile, rm } from 'fs/promises';
+import path from 'path';
+
+const TMP_DIR = '/tmp';
 
 // Reusable comparison engine instance (stateless)
 const comparisonEngine = new ConsensusComparisonEngine();
@@ -14,14 +18,43 @@ const comparisonEngine = new ConsensusComparisonEngine();
 /**
  * Handles POST requests to the /api/transcribe endpoint.
  * This function orchestrates the multi-AI transcription and consensus process.
+ * It can handle both direct file uploads and chunked uploads.
  */
 export const POST: RequestHandler = async ({ request }) => {
+  let cleanupPath: string | null = null;
+
   try {
-    const formData = await request.formData();
-    const audioFile = formData.get('audio') as File;
+    let audioFile: File;
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const { uploadId, fileName } = await request.json();
+      if (!uploadId || !fileName) {
+        return json({ error: 'Missing uploadId or fileName for chunked upload.' }, { status: 400 });
+      }
+
+      const chunkDir = path.join(TMP_DIR, uploadId);
+      cleanupPath = chunkDir; // Set for cleanup
+
+      const chunkFiles = await readdir(chunkDir);
+      chunkFiles.sort((a, b) => parseInt(a) - parseInt(b));
+
+      const buffers = await Promise.all(
+        chunkFiles.map(file => readFile(path.join(chunkDir, file)))
+      );
+
+      const combinedBuffer = Buffer.concat(buffers);
+      audioFile = new File([combinedBuffer], fileName);
+
+    } else if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      audioFile = formData.get('audio') as File;
+    } else {
+      return json({ error: 'Unsupported Content-Type.' }, { status: 415 });
+    }
 
     if (!audioFile) {
-      return json({ error: 'No audio file provided.' }, { status: 400 });
+      return json({ error: 'No audio file provided or reassembled.' }, { status: 400 });
     }
 
     const processors = initializeProcessors();
@@ -82,12 +115,17 @@ export const POST: RequestHandler = async ({ request }) => {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
     console.error(`Transcription API Error: ${errorMessage}`);
     
-    // Don't leak internal error details in production
     const response = process.env.NODE_ENV === 'production'
       ? { error: 'Failed to process audio file.' }
       : { error: 'Failed to process audio file.', details: errorMessage };
     
     return json(response, { status: 500 });
+  } finally {
+    if (cleanupPath) {
+      await rm(cleanupPath, { recursive: true, force: true }).catch(err => {
+        console.error(`Failed to clean up chunk directory ${cleanupPath}:`, err);
+      });
+    }
   }
 };
 

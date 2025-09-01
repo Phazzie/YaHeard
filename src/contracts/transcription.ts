@@ -17,7 +17,7 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
  * Maximum file size for uploads, in bytes.
  * This is based on typical serverless function payload limits.
  */
-export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+export const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 
 /**
  * The standardized output from ANY AI transcription service.
