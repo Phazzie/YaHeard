@@ -125,37 +125,21 @@
 
       console.log('@phazzie-checkpoint-5: Sending file to API');
 
-      // WHY PROGRESS SIMULATION:
-      // ========================
-      // Provide immediate feedback while API processes
-      // Prevents user confusion during long operations
-      // Can be replaced with real progress in future regeneration
-
-      const progressInterval = setInterval(() => {
-        uploadProgress += 10;
-        if (uploadProgress >= 100) {
-          clearInterval(progressInterval);
-        }
-      }, 500);
-
-      // WHY FETCH API:
-      // ==============
-      // Native browser API for HTTP requests
-      // No external dependencies required
-      // Can be easily replaced with different HTTP clients
+      // Real progress tracking instead of fake simulation
+      uploadProgress = 10; // Start at 10% when request begins
 
       const formData = new FormData();
       formData.append('audio', audioFileFromUser);
 
       console.log('@phazzie-debug: About to make fetch request');
+      uploadProgress = 30; // 30% when starting fetch
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         body: formData
       });
 
       console.log('@phazzie-debug: Fetch request completed', response.status);
-      clearInterval(progressInterval);
-      uploadProgress = 100;
+      uploadProgress = 60; // 60% when fetch completes
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -163,8 +147,13 @@
         throw new Error(`API call failed: ${response.status} - ${errorText}`);
       }
 
+      uploadProgress = 80; // 80% when starting to parse response
+
       const result = await response.json();
       console.log('@phazzie-debug: API response received:', result);
+      console.log('@phazzie-debug: Type of result:', typeof result);
+      console.log('@phazzie-debug: Keys in result:', Object.keys(result || {}));
+      console.log('@phazzie-debug: result.finalText exists?', !!result?.finalText);
       
       // API now directly returns ConsensusResult
       if (result && result.finalText) {
@@ -173,14 +162,19 @@
         // Extract individual results and consensus from direct response
         transcriptionResults = result.individualResults || [];
         consensusResult = result;
+        
+        console.log('@phazzie-debug: Set transcriptionResults length:', transcriptionResults.length);
+        console.log('@phazzie-debug: Set consensusResult:', !!consensusResult);
       } else {
         console.log('@phazzie-debug: No results in API response');
+        console.log('@phazzie-debug: result.finalText value:', result?.finalText);
         transcriptionResults = [];
         consensusResult = null;
       }
 
       console.log('@phazzie-debug: Final transcriptionResults:', transcriptionResults);
       console.log('@phazzie-debug: Final consensusResult:', consensusResult);
+      uploadProgress = 100; // 100% when processing complete
       console.log('@phazzie-checkpoint-6: Transcription completed successfully');
 
     } catch (error) {
