@@ -49,6 +49,37 @@ src/
 npm install
 ```
 
+### Environment Configuration
+
+**⚠️ IMPORTANT**: At least one API key is required for the application to function. The server will return a 500 error if no API keys are configured.
+
+1. **Copy the environment template:**
+```bash
+cp .env.example .env
+```
+
+2. **Add your API keys to `.env`:**
+```bash
+# At least ONE of these is required:
+OPENAI_API_KEY=your-openai-key-here
+ASSEMBLYAI_API_KEY=your-assemblyai-key-here  
+DEEPGRAM_API_KEY=your-deepgram-key-here
+ELEVENLABS_API_KEY=your-elevenlabs-key-here
+GEMINI_API_KEY=your-gemini-key-here
+```
+
+#### API Key Sources:
+
+| Service | Get API Key From | Status | Notes |
+|---------|------------------|--------|--------|
+| **OpenAI Whisper** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Optional | High-quality transcription |
+| **AssemblyAI** | [assemblyai.com/dashboard](https://www.assemblyai.com/dashboard/signup) | Optional | Free tier available |
+| **Deepgram** | [console.deepgram.com](https://console.deepgram.com/) | Optional | Fast and accurate |
+| **ElevenLabs** | [elevenlabs.io/app/profile](https://elevenlabs.io/app/profile) | Optional | Speech-to-text capabilities |
+| **Google Gemini** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Optional | Multimodal AI |
+
+**💡 Tip**: The more API keys you provide, the better the consensus results will be!
+
 ### Development
 ```bash
 npm run dev

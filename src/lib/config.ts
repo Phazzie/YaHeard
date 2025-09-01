@@ -88,7 +88,7 @@ export const QUALITY_CONFIG = {
   QUALITY_THRESHOLDS: {
     PREFERRED: 0.8,
     ACCEPTABLE: 0.5,
-    AVOID: 0.5 // Below this threshold
+    AVOID: 0.25 // Below this threshold - significantly lower than acceptable for clear distinction
   },
   
   /** Text length variation thresholds (multiplier of average length) */
