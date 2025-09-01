@@ -12,6 +12,7 @@
   // @dependencies: transcription contract
 
   import type { TranscriptionResult, ConsensusResult } from '../../contracts/transcription.js';
+  import AIInsights from './AIInsights.svelte';
 
   // ========= REGENERATION BOUNDARY END: Imports and Types =========
 
@@ -98,7 +99,7 @@ let activeTab = 'overview';
       </div>
     </div>
 
-    <!-- Enhanced Tab Navigation -->
+    <!-- Enhanced Tab Navigation with AI Insights -->
     <div class="flex space-x-2 glass-morphism rounded-2xl p-2 border border-white/20">
       <button 
         class="flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300 {activeTab === 'overview' ? 'bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-glow-cyan border-2 border-neon-cyan/50 shadow-neon-cyan' : 'text-white/70 hover:text-white hover:bg-white/10'}" 
@@ -111,6 +112,12 @@ let activeTab = 'overview';
         on:click={() => activeTab = 'detailed'}
       >
         🔍 Detailed
+      </button>
+      <button 
+        class="flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300 {activeTab === 'insights' ? 'bg-gradient-to-r from-neon-purple/20 to-neon-cyan/20 text-glow-purple border-2 border-neon-purple/50 shadow-neon-purple' : 'text-white/70 hover:text-white hover:bg-white/10'}" 
+        on:click={() => activeTab = 'insights'}
+      >
+        🧠 AI Insights
       </button>
     </div>
 
@@ -216,6 +223,13 @@ let activeTab = 'overview';
             <span class="relative z-10">📋 Copy Results</span>
           </button>
         </div>
+      </div>
+    {/if}
+
+    {#if activeTab === "insights"}
+      <!-- AI Insights and Thought Process -->
+      <div class="ai-insights">
+        <AIInsights reasoning={consensus?.reasoning || null} />
       </div>
     {/if}
 

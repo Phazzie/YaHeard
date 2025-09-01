@@ -101,6 +101,86 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
         servicesUsed: 3,
         averageConfidence: 0.92,
         disagreementCount: 0
+      },
+      reasoning: {
+        steps: [
+          {
+            stepNumber: 1,
+            description: 'Received 3 transcription results from Whisper, AssemblyAI, and Deepgram',
+            type: 'analysis' as const,
+            data: { servicesUsed: 3, totalResults: 3 },
+            timestamp: new Date()
+          },
+          {
+            stepNumber: 2,
+            description: 'Analyzed confidence scores across all services',
+            type: 'comparison' as const,
+            data: { averageConfidence: 0.92, highestConfidence: 0.95 },
+            timestamp: new Date()
+          },
+          {
+            stepNumber: 3,
+            description: 'Selected Whisper result due to highest confidence score (95%)',
+            type: 'decision' as const,
+            data: { chosenService: 'Whisper', confidence: 0.95 },
+            timestamp: new Date()
+          },
+          {
+            stepNumber: 4,
+            description: 'Validated consensus quality and consistency',
+            type: 'validation' as const,
+            data: { agreementLevel: 'high', conflictsResolved: 0 },
+            timestamp: new Date()
+          }
+        ],
+        decisionFactors: [
+          {
+            factor: 'Confidence Score',
+            weight: 0.6,
+            impact: 'Whisper provided the highest confidence at 95%, significantly above others',
+            favoredServices: ['Whisper']
+          },
+          {
+            factor: 'Processing Speed',
+            weight: 0.2,
+            impact: 'Whisper processed fastest at 2.5 seconds',
+            favoredServices: ['Whisper']
+          },
+          {
+            factor: 'Text Length Consistency',
+            weight: 0.2,
+            impact: 'All services produced similar length results indicating good agreement',
+            favoredServices: ['Whisper', 'AssemblyAI', 'Deepgram']
+          }
+        ],
+        conflictResolution: [],
+        qualityAssessment: [
+          {
+            serviceName: 'Whisper',
+            qualityScore: 0.95,
+            strengths: ['Highest confidence score', 'Fastest processing', 'Excellent accuracy'],
+            weaknesses: [],
+            recommendation: 'preferred' as const,
+            analysisNotes: 'Whisper delivered exceptional results with 95% confidence and sub-3s processing time'
+          },
+          {
+            serviceName: 'AssemblyAI',
+            qualityScore: 0.85,
+            strengths: ['Good confidence score', 'Reliable processing'],
+            weaknesses: ['Slightly slower than Whisper'],
+            recommendation: 'acceptable' as const,
+            analysisNotes: 'AssemblyAI provided solid 92% confidence results in reasonable time'
+          },
+          {
+            serviceName: 'Deepgram',
+            qualityScore: 0.80,
+            strengths: ['Fast processing', 'Good format support'],
+            weaknesses: ['Lower confidence than others'],
+            recommendation: 'acceptable' as const,
+            analysisNotes: 'Deepgram delivered good results with 88% confidence in under 3 seconds'
+          }
+        ],
+        finalReasoning: 'Selected Whisper transcription based on superior confidence score (95%) and fastest processing time (2.5s). All three services showed good agreement on content length, indicating high reliability. No significant conflicts detected between services.'
       }
     };
 
@@ -112,7 +192,7 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
 
     return json({
       success: true,
-      results: mockResults,
+      allResults: mockResults,
       consensus: consensusResult
     });
 

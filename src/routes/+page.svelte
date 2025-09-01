@@ -62,6 +62,7 @@
   let audioFileFromUser: File | null = null;  // Current uploaded audio file
   let isProcessingTranscription = false;      // Loading state during API calls
   let transcriptionResults: any[] = [];       // Results from all AI services
+  let consensusResult: any = null;            // Consensus result with AI reasoning
   let uploadProgress = 0;                     // Progress percentage (0-100)
   let errorMessage = '';                      // User-friendly error display
 
@@ -159,7 +160,8 @@
       }
 
       const result = await response.json();
-      transcriptionResults = result.results || [];
+      transcriptionResults = result.allResults || [];
+      consensusResult = result.consensus || null;
 
       console.log('@phazzie-checkpoint-6: Transcription completed successfully');
 
@@ -186,19 +188,19 @@
 <!-- @contract: Must render the main application UI -->
 <!-- @dependencies: State variables and event handlers -->
 
-<!-- Animated Background Particles -->
+<!-- Subtle Animated Background Particles -->
 <div class="particle-container">
-  {#each Array(20) as _, i}
+  {#each Array(12) as _, i}
     <div 
       class="particle" 
-      style="left: {Math.random() * 100}%; animation-delay: {Math.random() * 8}s; animation-duration: {8 + Math.random() * 4}s;"
+      style="left: {Math.random() * 100}%; animation-delay: {Math.random() * 12}s; animation-duration: {12 + Math.random() * 6}s;"
     ></div>
   {/each}
 </div>
 
 <main class="min-h-screen relative cyber-grid-bg">
-  <!-- Dynamic Gradient Overlay -->
-  <div class="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/60 to-cyan-900/80 animate-gradient-x"></div>
+  <!-- Clean Gradient Overlay -->
+  <div class="absolute inset-0 bg-gradient-to-br from-slate-900/40 via-blue-900/30 to-indigo-900/40"></div>
   
   <div class="relative z-10 max-w-6xl mx-auto px-4 py-12">
 
@@ -328,7 +330,7 @@
           <h2 class="text-4xl font-bold text-glow-green">Transcription Complete!</h2>
         </div>
 
-        <ResultsDisplay results={transcriptionResults} />
+        <ResultsDisplay results={transcriptionResults} consensus={consensusResult} />
         
         <!-- Action Buttons -->
         <div class="flex justify-center space-x-6 mt-8">
@@ -381,22 +383,22 @@
     animation: spin 3s linear infinite !important;
   }
   
-  /* Enhanced background with moving gradient */
+  /* Enhanced background with cleaner gradient */
   main {
-    background: linear-gradient(45deg, #0f0f23, #1a0033, #330066, #0d1b2a, #1a0633, #2d1b4e);
-    background-size: 600% 600%;
-    animation: gradient-shift 8s ease infinite;
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0e4b99 100%);
+    background-size: 400% 400%;
+    animation: gradient-shift 12s ease infinite;
   }
   
-  /* Particle effects */
+  /* Refined particle effects */
   .particle {
-    width: 3px;
-    height: 3px;
-    background: #00ffff;
-    box-shadow: 0 0 10px #00ffff;
+    width: 2px;
+    height: 2px;
+    background: rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
     border-radius: 50%;
     position: absolute;
-    animation: particle-float 8s linear infinite;
+    animation: particle-float 12s linear infinite;
   }
   
   @keyframes glow-pulse {

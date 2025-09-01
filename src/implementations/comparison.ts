@@ -6,8 +6,8 @@
  * @dependencies processors.ts contract
  */
 
-import type { ComparisonEngine, ConsensusResult, ConsensusStats, Disagreement } from '../contracts/processors.ts';
-import type { TranscriptionResult } from '../contracts/transcription.ts';
+import type { ComparisonEngine } from '../contracts/processors.ts';
+import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning } from '../contracts/transcription.ts';
 
 // ========= REGENERATION BOUNDARY START: Comparison Engine Implementation =========
 // @phazzie: This entire file can be regenerated independently
@@ -41,7 +41,36 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       consensusConfidence,
       individualResults: results,
       disagreements,
-      stats
+      stats,
+      reasoning: {
+        steps: [
+          {
+            stepNumber: 1,
+            description: `Processed ${results.length} transcription results`,
+            type: 'analysis',
+            data: { resultCount: results.length },
+            timestamp: new Date()
+          }
+        ],
+        decisionFactors: [
+          {
+            factor: 'Confidence Score',
+            weight: 1.0,
+            impact: 'Selected highest confidence result',
+            favoredServices: [results.reduce((best, current) => current.confidence > best.confidence ? current : best).serviceName]
+          }
+        ],
+        conflictResolution: [],
+        qualityAssessment: results.map(result => ({
+          serviceName: result.serviceName,
+          qualityScore: result.confidence,
+          strengths: result.confidence > 0.8 ? ['High confidence'] : [],
+          weaknesses: result.confidence < 0.7 ? ['Lower confidence'] : [],
+          recommendation: result.confidence > 0.8 ? 'preferred' as const : 'acceptable' as const,
+          analysisNotes: `Confidence: ${(result.confidence * 100).toFixed(1)}%`
+        })),
+        finalReasoning: `Selected best result based on confidence scores.`
+      }
     };
 
     console.log('@phazzie-checkpoint-comparison-3: Consensus calculation completed');
