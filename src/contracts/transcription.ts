@@ -138,8 +138,8 @@ export interface TranscriptionResult {
   /** The actual transcribed text - the most important field */
   text: string;
 
-  /** Confidence score from 0.0 (not confident) to 1.0 (very confident) */
-  confidence: number;
+  /** Confidence score from 0.0 (not confident) to 1.0 (very confident). Can be undefined if the service does not provide it. */
+  confidence?: number;
 
   /** How long the AI service took to process this file in milliseconds */
   processingTimeMs: number;
@@ -445,6 +445,7 @@ export interface ServiceQualityAssessment {
  *   text: 'Hello, this is a transcription.',
  *   confidence: 0.95,
  *   processingTimeMs: 1250,
+ *   timestamp: new Date(),
  *   metadata: {
  *     model: 'whisper-1',
  *     language: 'en',

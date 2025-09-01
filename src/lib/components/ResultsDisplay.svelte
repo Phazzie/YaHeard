@@ -61,7 +61,8 @@ let activeTab = 'overview';
     return `${(milliseconds / 1000).toFixed(1)}s`;
   }
 
-  function getConfidenceColor(confidence: number): string {
+  function getConfidenceColor(confidence: number | undefined): string {
+    if (confidence === undefined) return 'text-white/70';
     if (confidence >= 0.9) return 'text-neon-green';
     if (confidence >= 0.7) return 'text-neon-yellow';
     return 'text-neon-pink';
@@ -182,7 +183,7 @@ let activeTab = 'overview';
               </div>
               <div class="flex items-center space-x-4">
                 <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-green/30">
-                  <span class="text-lg font-bold {getConfidenceColor(result.confidence ?? 0)}">
+                  <span class="text-lg font-bold {getConfidenceColor(result.confidence)}">
                     {formatConfidence(result.confidence)}
                   </span>
                 </div>
