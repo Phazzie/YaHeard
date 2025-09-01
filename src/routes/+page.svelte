@@ -147,16 +147,20 @@
       const formData = new FormData();
       formData.append('audio', audioFileFromUser);
 
+      console.log('@phazzie-debug: About to make fetch request');
       const response = await fetch('/api/transcribe', {
         method: 'POST',
         body: formData
       });
 
+      console.log('@phazzie-debug: Fetch request completed', response.status);
       clearInterval(progressInterval);
       uploadProgress = 100;
 
       if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('@phazzie-debug: Response not OK', response.status, errorText);
+        throw new Error(`API call failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -167,7 +171,16 @@
 
     } catch (error) {
       console.error('@phazzie-error: Transcription processing failed');
-      errorMessage = 'Unable to process audio file. Please check your internet connection and try again.';
+      console.error('@phazzie-debug: Full error details:', error);
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Network error: Unable to connect to the transcription service. Please check your internet connection.';
+      } else if (error instanceof Error && error.message.includes('API call failed')) {
+        errorMessage = `Server error: ${error.message}`;
+      } else {
+        errorMessage = 'Unable to process audio file. Please check your internet connection and try again.';
+      }
       console.error(error);
     } finally {
       // WHY FINALLY BLOCK:
