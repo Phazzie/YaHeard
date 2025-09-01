@@ -7,58 +7,6 @@
 
 import { CONSENSUS_CONFIG, UI_CONFIG } from './config.js';
 
-// ========= COLOR AND STYLING UTILITIES =========
-
-/**
- * Get color classes for reasoning step types
- */
-export function getStepColor(type: string): string {
-  switch (type) {
-    case 'analysis': return 'border-blue-400/50 bg-blue-500/10';
-    case 'comparison': return 'border-yellow-400/50 bg-yellow-500/10';
-    case 'weighting': return 'border-purple-400/50 bg-purple-500/10';
-    case 'decision': return 'border-green-400/50 bg-green-500/10';
-    case 'validation': return 'border-cyan-400/50 bg-cyan-500/10';
-    default: return 'border-white/30 bg-white/10';
-  }
-}
-
-/**
- * Get icon for reasoning step types
- */
-export function getStepIcon(type: string): string {
-  switch (type) {
-    case 'analysis': return '🔍';
-    case 'comparison': return '⚖️';
-    case 'weighting': return '📊';
-    case 'decision': return '🎯';
-    case 'validation': return '✅';
-    default: return '🤖';
-  }
-}
-
-/**
- * Get color class based on quality score
- */
-export function getQualityColor(score: number): string {
-  if (score >= CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) return 'text-green-400';
-  if (score >= CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) return 'text-yellow-400';
-  if (score >= 0.5) return 'text-orange-400';
-  return 'text-red-400';
-}
-
-/**
- * Get color classes for service recommendations
- */
-export function getRecommendationColor(recommendation: string): string {
-  switch (recommendation) {
-    case 'preferred': return 'text-green-400 bg-green-500/20';
-    case 'acceptable': return 'text-yellow-400 bg-yellow-500/20';
-    case 'avoid': return 'text-red-400 bg-red-500/20';
-    default: return 'text-gray-400 bg-gray-500/20';
-  }
-}
-
 // ========= DATA FORMATTING UTILITIES =========
 
 /**
@@ -108,18 +56,6 @@ export function formatJsonSafely(data: unknown): string {
   }
 }
 
-/**
- * Format confidence as percentage with color indication
- */
-export function formatConfidence(confidence: number): { text: string; colorClass: string } {
-  const percentage = (confidence * 100).toFixed(1);
-  const colorClass = getQualityColor(confidence);
-  
-  return {
-    text: `${percentage}%`,
-    colorClass
-  };
-}
 
 /**
  * Format processing time with appropriate units
@@ -148,26 +84,6 @@ export function isLargeObject(obj: unknown): boolean {
   } catch {
     return true; // Assume it's large if we can't stringify it
   }
-}
-
-/**
- * Validate reasoning step data structure
- */
-export function isValidReasoningStep(step: unknown): step is {
-  stepNumber: number;
-  description: string;
-  type: string;
-  timestamp: Date | string;
-} {
-  if (!step || typeof step !== 'object') return false;
-  
-  const s = step as Record<string, unknown>;
-  return (
-    typeof s.stepNumber === 'number' &&
-    typeof s.description === 'string' &&
-    typeof s.type === 'string' &&
-    (s.timestamp instanceof Date || typeof s.timestamp === 'string')
-  );
 }
 
 // ========= ERROR HANDLING UTILITIES =========
@@ -203,18 +119,3 @@ export function safeArrayAccess<T>(
 }
 
 // ========= ACCESSIBILITY UTILITIES =========
-
-/**
- * Generate accessible labels for quality scores
- */
-export function getQualityLabel(score: number): string {
-  if (score >= CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
-    return `Excellent quality: ${(score * 100).toFixed(0)}%`;
-  } else if (score >= CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
-    return `Good quality: ${(score * 100).toFixed(0)}%`;
-  } else if (score >= 0.5) {
-    return `Moderate quality: ${(score * 100).toFixed(0)}%`;
-  } else {
-    return `Low quality: ${(score * 100).toFixed(0)}%`;
-  }
-}
