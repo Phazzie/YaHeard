@@ -79,13 +79,9 @@ export class DeepgramProcessor implements AudioProcessor {
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
+    // Server-side base64 conversion using Buffer (Node.js) - more efficient than btoa()
+    const nodeBuffer = Buffer.from(buffer);
+    return nodeBuffer.toString('base64');
   }
 
   async getCostPerMinute(): Promise<number> {

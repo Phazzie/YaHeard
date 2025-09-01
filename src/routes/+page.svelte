@@ -246,6 +246,7 @@
     </div>
     
     <!-- Debug Info (remove in production) -->
+        <!-- Debug Info - Always show for now to diagnose issue -->
     <div class="mb-4 p-4 bg-black/50 rounded text-sm text-white/70">
       Debug: transcriptionResults.length = {transcriptionResults.length}, 
       consensusResult = {consensusResult ? 'exists' : 'null'}, 

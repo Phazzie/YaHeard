@@ -85,19 +85,9 @@ export class GeminiProcessor implements AudioProcessor {
 
   private async arrayBufferToBase64(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
-    return new Promise<string>((resolve, reject) => {
-      const blob = new Blob([arrayBuffer]);
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result.split(',')[1]);
-        } else {
-          reject(new Error('Failed to convert ArrayBuffer to base64 string.'));
-        }
-      };
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(blob);
-    });
+    // Server-side base64 conversion using Buffer (Node.js)
+    const buffer = Buffer.from(arrayBuffer);
+    return buffer.toString('base64');
   }
 
   async getCostPerMinute(): Promise<number> {
