@@ -65,6 +65,25 @@
   let consensusResult: any = null;            // Consensus result with AI reasoning
   let uploadProgress = 0;                     // Progress percentage (0-100)
   let errorMessage = '';                      // User-friendly error display
+  
+  // Add explicit display state to force reactivity
+  let showResults = false;                    // Controls main display state
+  let displayState: 'upload' | 'processing' | 'results' | 'error' = 'upload';
+
+  // Reactive statement to ensure UI updates
+  $: {
+    if (transcriptionResults.length > 0 && consensusResult) {
+      showResults = true;
+      displayState = 'results';
+    } else if (isProcessingTranscription) {
+      displayState = 'processing'; 
+    } else if (errorMessage) {
+      displayState = 'error';
+    } else {
+      showResults = false;
+      displayState = 'upload';
+    }
+  }
 
   // ========= REGENERATION BOUNDARY END: State Management =========
 
@@ -163,13 +182,21 @@
         transcriptionResults = result.individualResults || [];
         consensusResult = result;
         
+        // FORCE REACTIVITY: Explicitly trigger state change
+        showResults = true;
+        displayState = 'results';
+        
         console.log('@phazzie-debug: Set transcriptionResults length:', transcriptionResults.length);
         console.log('@phazzie-debug: Set consensusResult:', !!consensusResult);
+        console.log('@phazzie-debug: Set showResults:', showResults);
+        console.log('@phazzie-debug: Set displayState:', displayState);
       } else {
         console.log('@phazzie-debug: No results in API response');
         console.log('@phazzie-debug: result.finalText value:', result?.finalText);
         transcriptionResults = [];
         consensusResult = null;
+        showResults = false;
+        displayState = 'error';
       }
 
       console.log('@phazzie-debug: Final transcriptionResults:', transcriptionResults);
@@ -247,15 +274,169 @@
     
     <!-- Debug Info (remove in production) -->
         <!-- Debug Info - Always show for now to diagnose issue -->
+        <!-- Debug Info - Shows current state for troubleshooting -->
     <div class="mb-4 p-4 bg-black/50 rounded text-sm text-white/70">
-      Debug: transcriptionResults.length = {transcriptionResults.length}, 
+      Debug: displayState = {displayState}, 
+      transcriptionResults.length = {transcriptionResults.length}, 
       consensusResult = {consensusResult ? 'exists' : 'null'}, 
       isProcessing = {isProcessingTranscription},
       audioFile = {audioFileFromUser ? audioFileFromUser.name : 'none'}
     </div>
 
+    <!-- CLEAN STATE-DRIVEN UI DESIGN -->
+    
+    {#if displayState === 'upload'}
+      <!-- UPLOAD STATE: File selection and ready-to-process -->
+      <div class="space-y-8">
+        <!-- File Upload Section -->
+        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
+          <div class="flex items-center space-x-4 mb-8">
+            <div class="text-6xl animate-bounce-slow">🎤</div>
+            <div>
+              <h2 class="text-4xl font-bold text-glow-cyan mb-2">Upload Audio File</h2>
+              <p class="text-xl text-white/80">Drag & drop or click to select your audio masterpiece</p>
+            </div>
+          </div>
+
+          <FileUpload
+            on:fileUploaded={handleFileUploaded}
+            disabled={isProcessingTranscription}
+          />
+
+          {#if audioFileFromUser}
+            <div class="mt-8 p-6 glass-morphism rounded-2xl border-2 border-neon-green/50 shadow-neon-green animate-fade-in-up">
+              <div class="flex items-center space-x-4">
+                <div class="text-4xl animate-spin-slow">💾</div>
+                <div>
+                  <p class="text-2xl font-bold text-glow-green">✅ File Locked & Loaded!</p>
+                  <p class="text-lg text-green-300">
+                    📁 {audioFileFromUser.name} 
+                    <span class="text-neon-cyan">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Ready to Process Section -->
+        {#if audioFileFromUser}
+          <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
+            <div class="text-center">
+              <div class="text-8xl mb-6 animate-float">🚀</div>
+              <h2 class="text-4xl font-bold text-glow-purple mb-6">Ready for Liftoff!</h2>
+              
+              <button
+                on:click={startTranscriptionProcess}
+                class="btn-cyber text-white font-bold py-6 px-12 rounded-2xl text-2xl transform transition-all duration-300 shadow-2xl relative z-10"
+                disabled={isProcessingTranscription}
+              >
+                <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
+              </button>
+              
+              <p class="text-lg text-white/70 mt-4 animate-pulse">
+                Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
+              </p>
+            </div>
+          </div>
+        {/if}
+      </div>
+
+    {:else if displayState === 'processing'}
+      <!-- PROCESSING STATE: Progress and AI status -->
+      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-up">
+        <div class="text-center">
+          <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
+          <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Minds Collaborating...</h2>
+
+          <ProgressBar progress={uploadProgress} />
+
+          <div class="mt-8 space-y-4">
+            <p class="text-xl text-white/90">Processing your audio with 5 AI services...</p>
+            <div class="flex justify-center space-x-4 text-sm">
+              <span class="px-3 py-1 bg-blue-500/20 rounded-full animate-pulse">🤖 Whisper</span>
+              <span class="px-3 py-1 bg-green-500/20 rounded-full animate-pulse" style="animation-delay: 0.5s">🤖 AssemblyAI</span>
+              <span class="px-3 py-1 bg-purple-500/20 rounded-full animate-pulse" style="animation-delay: 1s">🤖 Deepgram</span>
+              <span class="px-3 py-1 bg-pink-500/20 rounded-full animate-pulse" style="animation-delay: 1.5s">🤖 Gemini</span>
+              <span class="px-3 py-1 bg-orange-500/20 rounded-full animate-pulse" style="animation-delay: 2s">🤖 ElevenLabs</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    {:else if displayState === 'results'}
+      <!-- RESULTS STATE: Clean transcription display -->
+      <div class="space-y-8 animate-slide-in-up">
+        <!-- Success Header -->
+        <div class="text-center">
+          <div class="text-8xl mb-4 animate-bounce-slow">🎯</div>
+          <h2 class="text-4xl font-bold text-glow-green mb-4">Transcription Complete!</h2>
+          <p class="text-xl text-white/80">
+            AI Consensus: <span class="text-glow-cyan font-bold">{Math.round((consensusResult?.consensusConfidence || 0) * 100)}%</span>
+          </p>
+        </div>
+
+        <!-- Main Results Display -->
+        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green">
+          <ResultsDisplay results={transcriptionResults} consensus={consensusResult} />
+          
+          <!-- Action Buttons -->
+          <div class="flex justify-center space-x-6 mt-8">
+            <button 
+              on:click={() => {
+                // Reset to upload state
+                displayState = 'upload';
+                transcriptionResults = [];
+                consensusResult = null;
+                audioFileFromUser = null;
+                errorMessage = '';
+                uploadProgress = 0;
+              }}
+              class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
+            >
+              🔄 Process Another File
+            </button>
+            
+            <button 
+              on:click={() => {
+                const text = consensusResult?.finalText || '';
+                navigator.clipboard.writeText(text);
+              }}
+              class="btn-cyber-secondary text-white font-bold py-4 px-8 rounded-xl text-lg"
+            >
+              📋 Copy Text
+            </button>
+          </div>
+        </div>
+      </div>
+
+    {:else if displayState === 'error'}
+      <!-- ERROR STATE: Clear error message and retry -->
+      <div class="glass-morphism neon-border rounded-3xl p-10 border-red-500 bg-red-500/10 animate-slide-in-up">
+        <div class="text-center space-y-6">
+          <div class="text-8xl animate-bounce">⚠️</div>
+          <div>
+            <h2 class="text-4xl font-bold text-red-400 mb-4">Processing Failed</h2>
+            <p class="text-xl text-red-300">{errorMessage}</p>
+          </div>
+          
+          <button 
+            on:click={() => {
+              // Reset to upload state
+              displayState = 'upload';
+              errorMessage = '';
+              isProcessingTranscription = false;
+            }}
+            class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
+          >
+            🔄 Try Again
+          </button>
+        </div>
+      </div>
+    {/if}
+
     <!-- Error Display with Neon Styling -->
-    {#if errorMessage}
+    {#if displayState === 'error' && errorMessage}
       <div class="glass-morphism neon-border rounded-2xl p-6 mb-8 border-red-500 bg-red-500/10 animate-slide-in-left">
         <div class="flex items-center space-x-3">
           <div class="text-4xl animate-bounce">⚠️</div>
@@ -267,8 +448,8 @@
       </div>
     {/if}
 
-    <!-- File Upload Section with Holographic Effects - Only show when no results -->
-    {#if transcriptionResults.length === 0}
+    <!-- File Upload Section - Only show in upload state -->
+    {#if displayState === 'upload'}
     <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
       <div class="flex items-center space-x-4 mb-8">
         <div class="text-6xl animate-bounce-slow">🎤</div>
@@ -300,10 +481,10 @@
         </div>
       {/if}
     </div>
-    {/if} <!-- End of upload section when no results -->
+    {/if} <!-- End of upload section -->
 
-    <!-- Processing Section with Cyber Styling - Only show when no results -->
-    {#if audioFileFromUser && !isProcessingTranscription && transcriptionResults.length === 0}
+    <!-- Ready to Process Section - Show when file uploaded but not processing -->
+    {#if audioFileFromUser && displayState === 'upload'}
       <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
         <div class="text-center">
           <div class="text-8xl mb-6 animate-float">🚀</div>
@@ -318,14 +499,14 @@
           </button>
           
           <p class="text-lg text-white/70 mt-4 animate-pulse">
-            Powered by Whisper • AssemblyAI • Deepgram
+            Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
           </p>
         </div>
       </div>
     {/if}
 
-    <!-- Progress Section with Dynamic Effects - Only show when processing and no results yet -->
-    {#if isProcessingTranscription && transcriptionResults.length === 0}
+    <!-- Processing Section - Only show when processing -->
+    {#if displayState === 'processing'}
       <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-left">
         <div class="text-center">
           <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
@@ -333,23 +514,9 @@
 
           <ProgressBar progress={uploadProgress} />
 
-          <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="glass-morphism rounded-xl p-4 border border-neon-cyan/30">
-              <div class="text-3xl mb-2 animate-bounce">🤖</div>
-              <p class="text-neon-cyan font-bold">Whisper AI</p>
-              <p class="text-white/70">Analyzing...</p>
-            </div>
-            <div class="glass-morphism rounded-xl p-4 border border-neon-pink/30">
-              <div class="text-3xl mb-2 animate-bounce" style="animation-delay: 0.2s">🧠</div>
-              <p class="text-neon-pink font-bold">AssemblyAI</p>
-              <p class="text-white/70">Processing...</p>
-            </div>
-            <div class="glass-morphism rounded-xl p-4 border border-neon-purple/30">
-              <div class="text-3xl mb-2 animate-bounce" style="animation-delay: 0.4s">⚡</div>
-              <p class="text-neon-purple font-bold">Deepgram</p>
-              <p class="text-white/70">Computing...</p>
-            </div>
-          </div>
+          <p class="text-lg text-white/60 mt-6 animate-pulse">
+            🤖 Whisper analyzing... 🤖 AssemblyAI thinking... 🤖 Multiple AI minds collaborating...
+          </p>
         </div>
       </div>
     {/if}
@@ -398,136 +565,251 @@
   </div>
 </main>
 
-<!-- ========= REGENERATION BOUNDARY END: UI Template ========= -->
-
 <style>
-  /* Ensure custom animations and effects are applied */
-  :global(.animate-glow-pulse) {
-    animation: glow-pulse 2s ease-in-out infinite alternate !important;
+  /* Enhanced Cyber Theme Styles */
+  .cyber-grid-bg {
+    background-image: 
+      linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: grid-move 20s linear infinite;
   }
-  
-  :global(.animate-neon-flicker) {
-    animation: neon-flicker 1.5s ease-in-out infinite alternate !important;
+
+  @keyframes grid-move {
+    0% { background-position: 0 0; }
+    100% { background-position: 50px 50px; }
   }
-  
-  :global(.animate-float) {
-    animation: float 4s ease-in-out infinite !important;
+
+  .glass-morphism {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  
-  :global(.animate-fade-in-up) {
-    animation: fade-in-up 0.8s ease-out !important;
+
+  .holographic {
+    position: relative;
+    overflow: hidden;
   }
-  
-  :global(.animate-slide-in-left) {
-    animation: slide-in-left 0.6s ease-out !important;
-  }
-  
-  :global(.animate-slide-in-right) {
-    animation: slide-in-right 0.6s ease-out !important;
-  }
-  
-  :global(.animate-bounce-slow) {
-    animation: bounce 2s infinite !important;
-  }
-  
-  :global(.animate-spin-slow) {
-    animation: spin 3s linear infinite !important;
-  }
-  
-  /* Enhanced background with cleaner gradient */
-  main {
-    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0e4b99 100%);
-    background-size: 400% 400%;
-    animation: gradient-shift 12s ease infinite;
-  }
-  
-  /* Refined particle effects */
-  .particle {
-    width: 2px;
-    height: 2px;
-    background: rgba(0, 229, 255, 0.6);
-    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
-    border-radius: 50%;
+
+  .holographic::before {
+    content: '';
     position: absolute;
-    animation: particle-float 12s linear infinite;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 255, 255, 0.2),
+      transparent
+    );
+    animation: holographic-sweep 3s infinite;
   }
-  
+
+  @keyframes holographic-sweep {
+    0% { left: -100%; }
+    100% { left: 100%; }
+  }
+
+  .neon-border {
+    border: 2px solid;
+    border-image: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00, #00ffff) 1;
+    animation: border-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes border-glow {
+    from { box-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+    to { box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 30px rgba(0, 255, 255, 0.6); }
+  }
+
+  .text-glow-cyan {
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  }
+
+  .text-glow-pink {
+    color: #ff69b4;
+    text-shadow: 0 0 10px rgba(255, 105, 180, 0.8);
+  }
+
+  .text-glow-purple {
+    color: #8b5cf6;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.8);
+  }
+
+  .text-glow-green {
+    color: #10b981;
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+  }
+
+  .btn-cyber {
+    background: linear-gradient(45deg, #00ffff, #ff00ff);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+
+  .btn-cyber:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 255, 255, 0.4);
+  }
+
+  .btn-cyber-secondary {
+    background: linear-gradient(45deg, #8b5cf6, #ec4899);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .btn-cyber-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes bounceIn {
+    0%, 20%, 40%, 60%, 80% {
+      animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+    }
+    0% {
+      opacity: 0;
+      transform: scale3d(.3, .3, .3);
+    }
+    20% {
+      transform: scale3d(1.1, 1.1, 1.1);
+    }
+    40% {
+      transform: scale3d(.9, .9, .9);
+    }
+    60% {
+      opacity: 1;
+      transform: scale3d(1.03, 1.03, 1.03);
+    }
+    80% {
+      transform: scale3d(.97, .97, .97);
+    }
+    100% {
+      opacity: 1;
+      transform: scale3d(1, 1, 1);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.8s ease-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slideInRight 0.8s ease-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.6s ease-out;
+  }
+
+  .animate-bounce-in {
+    animation: bounceIn 1s ease-out;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite alternate;
+  }
+
   @keyframes glow-pulse {
-    0%, 100% { 
-      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3);
-      text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 0 0 20px rgba(0, 255, 255, 0.6);
+    from {
+      text-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 30px rgba(255, 0, 255, 0.3), 0 0 40px rgba(255, 255, 0, 0.2);
     }
-    50% { 
-      box-shadow: 0 0 40px rgba(255, 0, 128, 0.8), 0 0 80px rgba(255, 0, 128, 0.4);
-      text-shadow: 0 0 20px rgba(255, 0, 128, 1), 0 0 40px rgba(255, 0, 128, 0.8);
+    to {
+      text-shadow: 0 0 30px rgba(0, 255, 255, 0.8), 0 0 40px rgba(255, 0, 255, 0.6), 0 0 50px rgba(255, 255, 0, 0.4);
     }
   }
-  
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+
+  .animate-bounce-slow {
+    animation: bounce-slow 2s ease-in-out infinite;
+  }
+
+  @keyframes bounce-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  .animate-neon-flicker {
+    animation: neon-flicker 1.5s ease-in-out infinite alternate;
+  }
+
   @keyframes neon-flicker {
     0%, 100% { 
       opacity: 1;
-      text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
     }
     50% { 
       opacity: 0.8;
-      text-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor;
+      text-shadow: 0 0 20px rgba(0, 255, 255, 1);
     }
-  }
-  
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-15px); }
-  }
-  
-  @keyframes fade-in-up {
-    0% { opacity: 0; transform: translateY(30px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
-  
-  @keyframes slide-in-left {
-    0% { opacity: 0; transform: translateX(-50px); }
-    100% { opacity: 1; transform: translateX(0); }
-  }
-  
-  @keyframes slide-in-right {
-    0% { opacity: 0; transform: translateX(50px); }
-    100% { opacity: 1; transform: translateX(0); }
-  }
-  
-  @keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  
-  @keyframes particle-float {
-    0% {
-      transform: translateY(100vh) translateX(0) rotate(0deg);
-      opacity: 0;
-    }
-    10% {
-      opacity: 1;
-    }
-    90% {
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(-100vh) translateX(50px) rotate(360deg);
-      opacity: 0;
-    }
-  }
-  
-  /* Secondary button style for copy/download actions */
-  :global(.btn-cyber-secondary) {
-    background: linear-gradient(45deg, #4c1d95, #1e3a8a);
-    border: 2px solid #60a5fa;
-    transition: all 0.3s ease;
-  }
-  
-  :global(.btn-cyber-secondary:hover) {
-    background: linear-gradient(45deg, #5b21b6, #1d4ed8);
-    border-color: #93c5fd;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
   }
 </style>
