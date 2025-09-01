@@ -131,75 +131,42 @@ export class GeminiProcessor implements AudioProcessor {
   // @dependencies: TranscriptionResult interface
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-gemini-5: Starting REAL Gemini API processing');
+    console.log('@phazzie-checkpoint-gemini-5: Starting REAL Gemini API processing with Files API');
+    if (!this.config.apiKey) {
+      throw new Error('GEMINI_API_KEY not configured');
+    }
 
-    // WHY THIS METHOD:
-    // ================
-    // This is where the actual Gemini API integration happens
-    // Can be completely rewritten when API changes
-    // Must maintain exact return type contract
+    let uploadedFileUri: string | undefined;
+    const startTime = Date.now();
 
     try {
-      // WHY REAL API IMPLEMENTATION:
-      // ============================
-      // Using actual Google Gemini API for multimodal transcription
-      // Provides industry-leading multimodal AI capabilities
-      // Maintains same interface for seamless integration
+      // Step 1: Upload the file to the Files API
+      console.log('@phazzie-checkpoint-gemini-6: Uploading file to Google Files API');
+      const uploadResult = await this._uploadFile(file);
+      const fileUri = uploadResult.file.uri;
+      uploadedFileUri = uploadResult.file.name; // The 'name' is the resource identifier, e.g., "files/12345"
+      console.log(`@phazzie-checkpoint-gemini-7: File uploaded successfully. URI: ${fileUri}`);
 
-      if (!this.config.apiKey) {
-        throw new Error('GEMINI_API_KEY not configured - add to environment variables');
-      }
-
-      console.log('@phazzie-checkpoint-gemini-6: Converting file to base64');
-
-      // Convert File to base64 for Gemini API (multimodal requirement)
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Audio = btoa(String.fromCharCode(...uint8Array));
-
-      // WHY BASE64 APPROACH:
-      // ====================
-      // Gemini multimodal API requires inline data encoding
-      // Audio must be embedded as base64 in the request
-      // Different from other APIs that use form-data
-
-      console.log('@phazzie-checkpoint-gemini-7: Preparing Gemini API request');
-
+      // Step 2: Make the generateContent request using the file URI
       const requestBody = {
         contents: [{
           parts: [
-            {
-              text: "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting."
-            },
-            {
-              inlineData: {
-                mimeType: file.type || 'audio/wav',
-                data: base64Audio
-              }
-            }
+            { text: "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting." },
+            { fileData: { mimeType: file.type || 'audio/wav', fileUri: fileUri } }
           ]
         }],
         generationConfig: {
-          temperature: 0.1, // Low temperature for consistent transcription
+          temperature: 0.1,
           topK: 1,
           topP: 1.0,
           maxOutputTokens: 2048,
         }
       };
 
-      console.log('@phazzie-checkpoint-gemini-8: Calling Gemini API');
-
-      const startTime = Date.now();
-
-      // WHY QUERY PARAMETER AUTH:
-      // =========================
-      // Gemini API uses query parameter for API key
-      // Different from header-based auth in other services
+      console.log('@phazzie-checkpoint-gemini-8: Calling Gemini API with file reference');
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${this.config.apiKey}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
 
@@ -210,60 +177,95 @@ export class GeminiProcessor implements AudioProcessor {
 
       const data = await response.json();
       const processingTime = Date.now() - startTime;
-
       console.log('@phazzie-checkpoint-gemini-9: Gemini API response received');
 
-      // WHY NESTED RESPONSE PARSING:
-      // =============================
-      // Gemini returns nested structure: candidates[0].content.parts[0].text
-      // Need to safely navigate this structure
-      // Handle cases where structure might be different
-
       let transcribedText = '';
-      if (data.candidates && data.candidates.length > 0 && 
-          data.candidates[0].content && data.candidates[0].content.parts && 
-          data.candidates[0].content.parts.length > 0) {
-        transcribedText = data.candidates[0].content.parts[0].text || '';
+      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        transcribedText = data.candidates[0].content.parts[0].text;
       } else {
-        console.warn('@phazzie-warning: Unexpected Gemini response structure');
+        console.warn('@phazzie-warning: Unexpected Gemini response structure', data);
         throw new Error('Gemini returned unexpected response structure');
       }
-
-      // WHY RESULT CONSTRUCTION:
-      // ========================
-      // Must match TranscriptionResult interface exactly
-      // All processors return the same structure for consensus
-      // Timestamp and metadata help with debugging and analysis
 
       const result: TranscriptionResult = {
         id: `gemini-${Date.now()}`,
         serviceName: this.serviceName,
         text: transcribedText.trim(),
-        confidence: undefined, // Gemini does not provide a confidence score.
+        confidence: undefined,
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
           model: 'gemini-2.0-flash-exp',
           apiVersion: 'v1beta',
-          temperature: 0.1,
+          fileApiUsed: true,
           estimatedCostUSD: this.calculateCost(processingTime)
         }
       };
 
       console.log(`@phazzie-checkpoint-gemini-10: Gemini processing completed in ${processingTime}ms`);
-
       return result;
 
     } catch (error) {
       console.error('@phazzie-error: Gemini processing failed:', error);
-      
-      // WHY ERROR HANDLING:
-      // ===================
-      // Network issues, API failures, or invalid responses can occur
-      // We re-throw with service context for debugging
-      // Upper layers will handle graceful degradation
-      
       throw new Error(`Gemini transcription failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Step 3: Delete the file from the Files API
+      if (uploadedFileUri) {
+        await this._deleteFile(uploadedFileUri);
+      }
+    }
+  }
+
+  private async _uploadFile(file: File): Promise<{ file: { name: string; uri: string; mimeType: string } }> {
+    if (!this.config.apiKey) throw new Error("API key is missing for Gemini file upload.");
+
+    const uploadUrl = `https://generativelanguage.googleapis.com/v1beta/uploads?key=${this.config.apiKey}`;
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        // The display name is sent via a different header for the uploads API
+        'x-goog-request-params': `file.display_name=${encodeURIComponent(file.name)}`,
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Gemini file upload failed: ${uploadResponse.status} ${errorText}`);
+    }
+    const responseJson = await uploadResponse.json();
+    // The 'uri' in the response is the publicly servable URI, but the 'name' is the resource identifier for API calls.
+    if (!responseJson.file?.name) {
+        throw new Error('Gemini file upload did not return a file resource name.');
+    }
+    // We need to construct the full URI for the fileData part of the next request.
+    // The actual URI is not returned directly in a usable format for the next step, but the `name` field is the identifier.
+    // The `fileUri` in the `generateContent` call should be the `name` from the upload response.
+    responseJson.file.uri = `https://generativelanguage.googleapis.com/v1beta/${responseJson.file.name}`;
+    return responseJson;
+  }
+
+  private async _deleteFile(fileName: string): Promise<void> {
+    console.log(`@phazzie-checkpoint-gemini-11: Deleting temporary file ${fileName} from Google`);
+    if (!this.config.apiKey) {
+      console.warn("API key is missing for Gemini file deletion. Skipping.");
+      return;
+    }
+
+    // The fileName is the resource identifier like 'files/12345'
+    const deleteUrl = `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${this.config.apiKey}`;
+    try {
+      const response = await fetch(deleteUrl, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        // Don't throw an error, just warn, as failing to delete shouldn't fail the whole transcription.
+        console.warn(`Failed to delete Gemini file ${fileName}: ${response.status} ${errorText}`);
+      } else {
+        console.log(`@phazzie-checkpoint-gemini-12: Successfully deleted temporary file ${fileName}`);
+      }
+    } catch (error) {
+      console.warn(`Error during Gemini file deletion for ${fileName}:`, error);
     }
   }
 

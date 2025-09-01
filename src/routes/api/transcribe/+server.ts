@@ -6,13 +6,10 @@
  * @dependencies processors.ts contracts, implementation files
  */
 
-// Define RequestHandler type for SvelteKit API routes
-interface RequestHandler {
-  (event: { request: Request }): Promise<Response>;
-}
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from '@sveltejs/kit';
+import * as fs from 'fs/promises';
 
-// REAL AI PROCESSOR IMPORTS - STEP 1 COMPLETE ✅
 import { WhisperProcessor } from '$lib/../implementations/whisper';
 import { AssemblyAIProcessor } from '$lib/../implementations/assembly';
 import { DeepgramProcessor } from '$lib/../implementations/deepgram';
@@ -20,25 +17,30 @@ import { ElevenLabsProcessor } from '$lib/../implementations/elevenlabs';
 import { GeminiProcessor } from '$lib/../implementations/gemini';
 import { ConsensusComparisonEngine } from '$lib/../implementations/comparison';
 
-// ========= REGENERATION BOUNDARY START: API Handler =========
-// @phazzie: This section can be regenerated independently
-// @contract: Must handle POST requests with audio files and return transcription results
-// @dependencies: Audio processor implementations
-
-export const POST: RequestHandler = async (event: { request: Request }) => {
-  const { request } = event;
+export const POST: RequestHandler = async ({ request }) => {
   console.log('@phazzie-checkpoint-api-1: Transcription API called');
 
   try {
-    const formData = await request.formData();
-    const audioFileFromUser = formData.get('audio') as File;
+    let audioFileFromUser: File;
+    const contentType = request.headers.get('content-type');
 
-    if (!audioFileFromUser) {
-      console.error('@phazzie-error: No audio file provided to API');
-      return json({
-        success: false,
-        error: 'No audio file provided'
-      }, { status: 400 });
+    if (contentType?.includes('application/json')) {
+        const body = await request.json();
+        if (!body.serverFilePath || !body.originalFileName) {
+            return json({ success: false, error: 'Invalid server file path request' }, { status: 400 });
+        }
+        console.log(`@phazzie-checkpoint-api-1b: Processing reassembled server file: ${body.serverFilePath}`);
+        const fileBuffer = await fs.readFile(body.serverFilePath);
+        audioFileFromUser = new File([fileBuffer], body.originalFileName);
+        // Clean up the reassembled file now that we have it in memory
+        await fs.unlink(body.serverFilePath).catch(err => console.error(`Failed to clean up reassembled file: ${err}`));
+    } else {
+        const formData = await request.formData();
+        audioFileFromUser = formData.get('audio') as File;
+
+        if (!audioFileFromUser) {
+            return json({ success: false, error: 'No audio file provided' }, { status: 400 });
+        }
     }
 
     console.log('@phazzie-checkpoint-api-2: Audio file received');
@@ -156,34 +158,36 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
     } catch (consensusError) {
       console.error('@phazzie-error: Consensus calculation failed:', consensusError);
       
-      // Fallback: Return the first successful result if consensus fails
-      const bestResult = successfulResults[0];
+      // Fallback: Return the best individual result if consensus fails
+      const bestResult = successfulResults.reduce((best, current) =>
+        current.confidence > best.confidence ? current : best
+      );
 
       return json({
         success: true,
         result: {
           finalText: bestResult.text,
-          consensusConfidence: bestResult.confidence ?? 0,
+          consensusConfidence: bestResult.confidence,
           individualResults: successfulResults,
           disagreements: [],
           stats: {
             totalProcessingTimeMs: successfulResults.reduce((sum, r) => sum + (r.processingTimeMs || 0), 0),
             servicesUsed: successfulResults.length,
-            averageConfidence: 0,
+            averageConfidence: successfulResults.reduce((sum, r) => sum + r.confidence, 0) / successfulResults.length,
             disagreementCount: 0
           },
           reasoning: {
             steps: [{
               stepNumber: 1,
-              description: `Fallback: Using first available result from ${bestResult.serviceName} due to consensus engine error.`,
+              description: `Fallback: Using best individual result from ${bestResult.serviceName} due to consensus engine error`,
               type: 'fallback' as const,
-              data: { selectedService: bestResult.serviceName },
+              data: { selectedService: bestResult.serviceName, confidence: bestResult.confidence },
               timestamp: new Date()
             }],
             decisionFactors: [],
             conflictResolution: [],
             qualityAssessment: [],
-            finalReasoning: `Consensus engine failed. Using result from ${bestResult.serviceName} as a fallback.`
+            finalReasoning: `Consensus engine failed, selected ${bestResult.serviceName} with ${(bestResult.confidence * 100).toFixed(1)}% confidence as fallback.`
           }
         }
       });

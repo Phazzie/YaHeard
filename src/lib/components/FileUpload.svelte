@@ -1,66 +1,30 @@
 <script lang="ts">
   /**
    * @file FileUpload.svelte
-   * @purpose Reusable file upload component with drag-and-drop
-   * @phazzie-status working
-   * @last-regenerated 2025-01-29 13:54:37 UTC
-   * @dependencies file-upload.ts contract
+   * @purpose Reusable file upload component with client-side chunking.
+   * @phazzie-status refactoring
+   * @last-regenerated 2025-09-01
+   * @dependencies file-upload.ts contract, /api/upload endpoint
    */
-  // ========= REGENERATION BOUNDARY START: Imports and Types =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must import required types and utilities
-  // @dependencies: file-upload contract
-
   import { createEventDispatcher } from 'svelte';
-  import type { FileUploadContract, UploadResult } from '../../contracts/file-upload.js';
-  import { SUPPORTED_AUDIO_FORMATS, MAX_FILE_SIZE_BYTES } from '../../contracts/transcription.js';
-
-  // ========= REGENERATION BOUNDARY END: Imports and Types =========
-
-  // ========= REGENERATION BOUNDARY START: Component Props =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must define component interface
-  // @dependencies: None
+  import type { UploadResult } from '../../contracts/file-upload.js';
+  import { SUPPORTED_AUDIO_FORMATS } from '../../contracts/transcription.js';
 
   export let disabled: boolean = false;
   export let accept: string[] = [...SUPPORTED_AUDIO_FORMATS];
-  export let maxSize: number = MAX_FILE_SIZE_BYTES;
 
-  // ========= REGENERATION BOUNDARY END: Component Props =========
+  const VERCEL_PAYLOAD_LIMIT = 4 * 1024 * 1024; // 4MB Vercel limit (conservative)
 
-  // ========= REGENERATION BOUNDARY START: State Management =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must maintain component state
-  // @dependencies: None
-
-  const dispatch = createEventDispatcher<{ fileUploaded: { file: File; result: UploadResult } }>();
+  const dispatch = createEventDispatcher<{ uploadCompleted: { result: any } }>();
 
   let isDragOver = false;
   let selectedFile: File | null = null;
-  let uploadError = '';
-  let isUploading = false;
-
-  // ========= REGENERATION BOUNDARY END: State Management =========
-
-  // ========= REGENERATION BOUNDARY START: File Validation =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must validate files according to contract
-  // @dependencies: File upload contract
+  let uploadError: string = '';
+  let isUploading: boolean = false;
+  let uploadProgress: number = 0;
+  let totalChunks: number = 0;
 
   function validateAudioFile(file: File): { isValid: boolean; error?: string } {
-    console.log('@phazzie-checkpoint-validation-1: Validating file');
-
-    // Check file size
-    if (file.size > maxSize) {
-      const maxSizeMB = (maxSize / 1024 / 1024).toFixed(1);
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
-      return {
-        isValid: false,
-        error: `File too large: ${fileSizeMB}MB (max ${maxSizeMB}MB)`
-      };
-    }
-
-    // Check file type
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!accept.includes(fileExtension)) {
       return {
@@ -68,66 +32,110 @@
         error: `Unsupported format: ${fileExtension}. Supported: ${accept.join(', ')}`
       };
     }
-
-    console.log('@phazzie-checkpoint-validation-2: File validation passed');
     return { isValid: true };
   }
 
-  // ========= REGENERATION BOUNDARY END: File Validation =========
+  async function uploadFileInChunks(file: File) {
+    const CHUNK_SIZE = VERCEL_PAYLOAD_LIMIT;
+    totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = `${file.name}-${Date.now()}`;
 
-  // ========= REGENERATION BOUNDARY START: File Processing =========
-  // @phazzie: This section can be regenerated independently
-  // @contract: Must process selected/uploaded files
-  // @dependencies: File validation, state management
+    console.log(`Starting chunked upload for ${file.name}, ID: ${uploadId}`);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+
+      uploadProgress = i + 1;
+
+      const formData = new FormData();
+      formData.append('chunk', chunk, `${file.name}.chunk${i}`);
+      formData.append('uploadId', uploadId);
+      formData.append('chunkIndex', i.toString());
+      formData.append('totalChunks', totalChunks.toString());
+      formData.append('fileName', file.name);
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Chunk upload failed');
+        }
+
+        if (result.message === 'Upload complete and file reassembled.') {
+          // Now we need to trigger the transcription with the reassembled file.
+          // This requires a new API endpoint or modification to the existing one.
+          // For now, we'll assume the main transcribe endpoint can be called with a server file path.
+          // This part of the flow will be completed in the next step.
+          console.log("File reassembled, now triggering transcription...");
+          const transcribeResponse = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ serverFilePath: result.filePath, originalFileName: file.name })
+          });
+
+          const finalResult = await transcribeResponse.json();
+           if (!finalResult.success) {
+             throw new Error(finalResult.error || 'Transcription failed after chunking.');
+           }
+          dispatch('uploadCompleted', { result: finalResult.result });
+          return; // Exit after final chunk is processed
+        }
+
+      } catch (err) {
+        uploadError = `Error uploading chunk ${i + 1}: ${(err as Error).message}`;
+        isUploading = false;
+        return;
+      }
+    }
+  }
+
+  async function uploadSingleFile(file: File) {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const response = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData
+      });
+      const result = await response.json();
+      if (!result.success) {
+          throw new Error(result.error || 'Transcription failed');
+      }
+      dispatch('uploadCompleted', { result: result.result });
+  }
 
   async function processSelectedFile(file: File) {
-    console.log('@phazzie-checkpoint-upload-1: Processing selected file');
-
     const validation = validateAudioFile(file);
     if (!validation.isValid) {
       uploadError = validation.error || 'Invalid file';
-      console.error('@phazzie-error: File validation failed');
       return;
     }
 
+    selectedFile = file;
+    uploadError = '';
+    isUploading = true;
+    uploadProgress = 0;
+    totalChunks = 0;
+
     try {
-      selectedFile = file;
-      uploadError = '';
-      isUploading = true;
-
-      console.log('@phazzie-checkpoint-upload-2: File validated, preparing upload');
-
-      // Create upload result
-      const uploadResult: UploadResult = {
-        success: true,
-        fileId: 'upload-' + Date.now(),
-        readyForProcessing: true,
-        metadata: {
-          originalName: file.name,
-          size: file.size,
-          mimeType: file.type,
-          extension: '.' + file.name.split('.').pop(),
-          uploadedAt: new Date()
-        }
-      };
-
-      console.log('@phazzie-checkpoint-upload-3: Upload result created');
-
-      // Dispatch event to parent component
-      dispatch('fileUploaded', { file, result: uploadResult });
-
-      console.log('@phazzie-checkpoint-upload-4: File upload completed successfully');
-
+      if (file.size > VERCEL_PAYLOAD_LIMIT) {
+        await uploadFileInChunks(file);
+      } else {
+        await uploadSingleFile(file);
+      }
     } catch (error) {
-      console.error('@phazzie-error: File processing failed');
-      uploadError = 'Unable to process the selected file. Please try a different audio file.';
-      console.error(error);
+      uploadError = (error as Error).message;
     } finally {
       isUploading = false;
     }
   }
-
-  // ========= REGENERATION BOUNDARY END: File Processing =========
 
   // ========= REGENERATION BOUNDARY START: Event Handlers =========
   // @phazzie: This section can be regenerated independently
@@ -207,13 +215,27 @@
     on:keydown={handleKeyDown}
   >
     {#if isUploading}
-      <div class="flex flex-col items-center">
-        <div class="relative">
-          <div class="w-16 h-16 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin mb-6"></div>
-          <div class="absolute inset-0 w-16 h-16 border-4 border-neon-pink border-b-transparent rounded-full animate-spin mb-6" style="animation-direction: reverse; animation-delay: 0.3s;"></div>
-        </div>
-        <p class="text-2xl font-bold text-glow-cyan animate-pulse">🔮 Processing your file...</p>
-        <p class="text-lg text-white/70 mt-2">The magic is happening ✨</p>
+      <div class="flex flex-col items-center w-full">
+        {#if totalChunks > 0}
+          <!-- Chunk Upload Progress -->
+          <p class="text-2xl font-bold text-glow-cyan animate-pulse mb-4">Uploading Large File...</p>
+          <p class="text-lg text-white/80 mb-4">Chunk {uploadProgress} of {totalChunks}</p>
+          <div class="w-full bg-black/30 rounded-full h-4 border border-neon-purple/50">
+            <div
+              class="bg-gradient-to-r from-neon-cyan to-neon-pink h-4 rounded-full transition-all duration-300"
+              style="width: {(uploadProgress / totalChunks) * 100}%"
+            ></div>
+          </div>
+          <p class="text-sm text-white/70 mt-3">Please keep this window open.</p>
+        {:else}
+          <!-- Standard Upload Spinner -->
+          <div class="relative">
+            <div class="w-16 h-16 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin mb-6"></div>
+            <div class="absolute inset-0 w-16 h-16 border-4 border-neon-pink border-b-transparent rounded-full animate-spin mb-6" style="animation-direction: reverse; animation-delay: 0.3s;"></div>
+          </div>
+          <p class="text-2xl font-bold text-glow-cyan animate-pulse">🔮 Processing your file...</p>
+          <p class="text-lg text-white/70 mt-2">The magic is happening ✨</p>
+        {/if}
       </div>
     {:else}
       <div class="flex flex-col items-center">
