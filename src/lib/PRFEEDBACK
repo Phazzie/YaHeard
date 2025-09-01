@@ -1,0 +1,249 @@
+Please address the comments from this code review:
+## Overall Comments
+- The compareTranscriptions method is extremely large—consider breaking it into smaller, focused helper functions or classes to improve readability and maintainability.
+- There are many raw console.log/console.warn calls—swap these out for a structured logger or configurable log levels to prevent noisy output in production.
+- The AI processor initialization in your API handler is repetitive—extract it into a shared factory or helper to centralize environment‐variable checks and simplify the route code.
+
+## Individual Comments
+
+### Comment 1
+<location> `src/implementations/comparison.ts:440` </location>
+<code_context>
+
+-    console.log('@phazzie-checkpoint-comparison-7: Found', disagreements.length, 'disagreements');
+-    return disagreements;
++    // Remove duplicate disagreements (same services, similar severity)
++    const uniqueDisagreements = disagreements.reduce((acc, current) => {
++      const existing = acc.find(d => {
++        const currentServices = Object.keys(current.serviceTexts).sort();
++        const existingServices = Object.keys(d.serviceTexts).sort();
++        return JSON.stringify(currentServices) === JSON.stringify(existingServices) &&
++               Math.abs(d.severity - current.severity) < 0.1;
++      });
++      
++      if (!existing) {
++        acc.push(current);
++      }
++      
++      return acc;
++    }, [] as Disagreement[]);
++
++    console.log('@phazzie-checkpoint-comparison-7: Found', uniqueDisagreements.length, 'unique disagreements');
++    return uniqueDisagreements;
+   }
+
+</code_context>
+
+<issue_to_address>
+Duplicate disagreement removal logic may miss some edge cases.
+
+Consider normalizing service pairs and rounding severity values to a fixed precision before comparison to improve duplicate detection.
+</issue_to_address>
+
+<suggested_fix>
+<<<<<<< SEARCH
+    // Remove duplicate disagreements (same services, similar severity)
+    const uniqueDisagreements = disagreements.reduce((acc, current) => {
+      const existing = acc.find(d => {
+        const currentServices = Object.keys(current.serviceTexts).sort();
+        const existingServices = Object.keys(d.serviceTexts).sort();
+        return JSON.stringify(currentServices) === JSON.stringify(existingServices) &&
+               Math.abs(d.severity - current.severity) < 0.1;
+      });
+
+      if (!existing) {
+        acc.push(current);
+      }
+
+      return acc;
+    }, [] as Disagreement[]);
+
+    console.log('@phazzie-checkpoint-comparison-7: Found', uniqueDisagreements.length, 'unique disagreements');
+    return uniqueDisagreements;
+=======
+    // Remove duplicate disagreements (normalize service pairs and round severity)
+    const normalizeServices = (serviceTexts: Record<string, string>) =>
+      Object.keys(serviceTexts).sort().join('|');
+
+    const roundSeverity = (severity: number) =>
+      Math.round(severity * 10) / 10; // round to one decimal place
+
+    const uniqueDisagreements = disagreements.reduce((acc, current) => {
+      const currentKey = normalizeServices(current.serviceTexts);
+      const currentSeverity = roundSeverity(current.severity);
+
+      const exists = acc.some(d => {
+        const existingKey = normalizeServices(d.serviceTexts);
+        const existingSeverity = roundSeverity(d.severity);
+        return existingKey === currentKey && existingSeverity === currentSeverity;
+      });
+
+      if (!exists) {
+        acc.push(current);
+      }
+
+      return acc;
+    }, [] as Disagreement[]);
+
+    console.log('@phazzie-checkpoint-comparison-7: Found', uniqueDisagreements.length, 'unique disagreements');
+    return uniqueDisagreements;
+>>>>>>> REPLACE
+
+</suggested_fix>
+
+### Comment 2
+<location> `src/lib/components/AIInsights.svelte:27` </location>
+<code_context>
+-    }
+-  }
++  // Progressive disclosure state
++  let showAllSteps = false;
++  let showAllAssessments = false;
++  
++  // Lazy loading thresholds
++  const INITIAL_STEPS_SHOWN = 5;
++  const INITIAL_ASSESSMENTS_SHOWN = 4;
+ </script>
+
+</code_context>
+
+<issue_to_address>
+Progressive disclosure logic may not reset on new data.
+
+Reset showAllSteps and showAllAssessments in response to changes in the reasoning prop to prevent stale expanded sections.
+</issue_to_address>
+
+<suggested_fix>
+<<<<<<< SEARCH
+  let showAllSteps = false;
+  let showAllAssessments = false;
+
+  // Lazy loading thresholds
+  const INITIAL_STEPS_SHOWN = 5;
+  const INITIAL_ASSESSMENTS_SHOWN = 4;
+=======
+  let showAllSteps = false;
+  let showAllAssessments = false;
+
+  // Reset progressive disclosure state when reasoning changes
+  $: if (reasoning) {
+    showAllSteps = false;
+    showAllAssessments = false;
+  }
+
+  // Lazy loading thresholds
+  const INITIAL_STEPS_SHOWN = 5;
+  const INITIAL_ASSESSMENTS_SHOWN = 4;
+>>>>>>> REPLACE
+
+</suggested_fix>
+
+### Comment 3
+<location> `src/lib/ui-utils.ts:67` </location>
+<code_context>
++/**
++ * Safely stringify JSON data with size limits
++ */
++export function formatJsonSafely(data: unknown): string {
++  try {
++    const jsonString = JSON.stringify(data, null, 2);
++    
++    if (jsonString.length > UI_CONFIG.MAX_JSON_DISPLAY_LENGTH) {
++      const truncated = jsonString.substring(0, UI_CONFIG.MAX_JSON_DISPLAY_LENGTH);
++      const lastNewline = truncated.lastIndexOf('\n');
++      return truncated.substring(0, lastNewline) + '\n  ... (truncated)';
++    }
++    
+</code_context>
+
+<issue_to_address>
+Truncation logic may break JSON structure.
+
+Truncating at a character limit can produce invalid JSON. Instead, truncate at a structural boundary or offer a summarized view to maintain valid output.
+
+Suggested implementation:
+
+```typescript
+/**
+ * Safely stringify JSON data with size limits.
+ * Truncates objects/arrays at a property/item limit to preserve valid JSON.
+ */
+export function formatJsonSafely(data: unknown): string {
+  const MAX_ITEMS = UI_CONFIG.MAX_JSON_DISPLAY_ITEMS ?? 50; // fallback if not set
+  let wasTruncated = false;
+
+  function truncate(obj: any, depth = 0): any {
+    if (Array.isArray(obj)) {
+      if (obj.length > MAX_ITEMS) {
+        wasTruncated = true;
+        return obj.slice(0, MAX_ITEMS).concat(['...(truncated)']);
+      }
+      return obj.map(item => truncate(item, depth + 1));
+    } else if (obj && typeof obj === 'object') {
+      const keys = Object.keys(obj);
+      if (keys.length > MAX_ITEMS) {
+        wasTruncated = true;
+        const truncatedObj: any = {};
+        for (const key of keys.slice(0, MAX_ITEMS)) {
+          truncatedObj[key] = truncate(obj[key], depth + 1);
+        }
+        truncatedObj['...(truncated)'] = true;
+        return truncatedObj;
+      }
+      const result: any = {};
+      for (const key of keys) {
+        result[key] = truncate(obj[key], depth + 1);
+      }
+      return result;
+    }
+    return obj;
+  }
+
+  try {
+    const safeData = truncate(data);
+    let jsonString = JSON.stringify(safeData, null, 2);
+    if (wasTruncated) {
+      jsonString += '\n/* Output truncated for display */';
+    }
+    return jsonString;
+
+```
+
+- You may want to add `MAX_JSON_DISPLAY_ITEMS` to your `UI_CONFIG` if it does not exist, or adjust the fallback value.
+- This approach preserves valid JSON structure and clearly indicates truncation.
+- If you want to support deeper truncation (e.g., limit depth), you can add a `MAX_DEPTH` parameter to the `truncate` function.
+</issue_to_address>
+
+### Comment 4
+<location> `src/lib/config.ts:87` </location>
+<code_context>
++  QUALITY_THRESHOLDS: {
++    PREFERRED: 0.8,
++    ACCEPTABLE: 0.5,
++    AVOID: 0.5 // Below this threshold
++  },
++  
+</code_context>
+
+<issue_to_address>
+AVOID threshold is set equal to ACCEPTABLE, which may cause ambiguity.
+
+Consider setting AVOID to a value below ACCEPTABLE to prevent overlap and ensure clear classification boundaries.
+</issue_to_address>
+
+### Comment 5
+<location> `src/implementations/gemini.ts:158` </location>
+<code_context>
++      // Convert File to base64 for Gemini API (multimodal requirement)
++      const arrayBuffer = await file.arrayBuffer();
++      const uint8Array = new Uint8Array(arrayBuffer);
++      const base64Audio = btoa(String.fromCharCode(...uint8Array));
++
++      // WHY BASE64 APPROACH:
+</code_context>
+
+<issue_to_address>
+Using btoa for base64 encoding may fail for large or non-ASCII files.
+
+btoa is limited to ASCII strings and may not handle binary audio data correctly. Use Buffer (Node.js) or a dedicated base64 library for reliable encoding.
+</issue_to_address>

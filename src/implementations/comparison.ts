@@ -437,19 +437,29 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       }
     }
 
-    // Remove duplicate disagreements (same services, similar severity)
+    // Remove duplicate disagreements (normalize service pairs and round severity)
+    // This improved algorithm handles edge cases by normalizing service names
+    // and rounding severity to prevent floating-point comparison issues
+    const normalizeServices = (serviceTexts: Record<string, string>) =>
+      Object.keys(serviceTexts).sort().join('|');
+
+    const roundSeverity = (severity: number) =>
+      Math.round(severity * 10) / 10; // round to one decimal place
+
     const uniqueDisagreements = disagreements.reduce((acc, current) => {
-      const existing = acc.find(d => {
-        const currentServices = Object.keys(current.serviceTexts).sort();
-        const existingServices = Object.keys(d.serviceTexts).sort();
-        return JSON.stringify(currentServices) === JSON.stringify(existingServices) &&
-               Math.abs(d.severity - current.severity) < 0.1;
+      const currentKey = normalizeServices(current.serviceTexts);
+      const currentSeverity = roundSeverity(current.severity);
+
+      const exists = acc.some(d => {
+        const existingKey = normalizeServices(d.serviceTexts);
+        const existingSeverity = roundSeverity(d.severity);
+        return existingKey === currentKey && existingSeverity === currentSeverity;
       });
-      
-      if (!existing) {
+
+      if (!exists) {
         acc.push(current);
       }
-      
+
       return acc;
     }, [] as Disagreement[]);
 

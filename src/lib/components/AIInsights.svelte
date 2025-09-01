@@ -26,7 +26,13 @@
   // Progressive disclosure state
   let showAllSteps = false;
   let showAllAssessments = false;
-  
+
+  // Reset progressive disclosure state when reasoning changes
+  $: if (reasoning) {
+    showAllSteps = false;
+    showAllAssessments = false;
+  }
+
   // Lazy loading thresholds
   const INITIAL_STEPS_SHOWN = 5;
   const INITIAL_ASSESSMENTS_SHOWN = 4;

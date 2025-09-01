@@ -153,9 +153,9 @@ export class GeminiProcessor implements AudioProcessor {
       console.log('@phazzie-checkpoint-gemini-6: Converting file to base64');
 
       // Convert File to base64 for Gemini API (multimodal requirement)
+      // Use chunked processing to handle large audio files efficiently
       const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Audio = btoa(String.fromCharCode(...uint8Array));
+      const base64Audio = await this.arrayBufferToBase64(arrayBuffer);
 
       // WHY BASE64 APPROACH:
       // ====================
@@ -312,6 +312,39 @@ export class GeminiProcessor implements AudioProcessor {
   }
 
   // ========= REGENERATION BOUNDARY END: Cost Calculation =========
+
+  // ========= REGENERATION BOUNDARY START: Base64 Helper =========
+  // @phazzie: Helper method for robust base64 encoding of large audio files
+  // @contract: Must handle large ArrayBuffers efficiently
+  // @dependencies: None
+
+  private async arrayBufferToBase64(arrayBuffer: ArrayBuffer): Promise<string> {
+    // WHY THIS IMPLEMENTATION:
+    // ========================
+    // btoa() with String.fromCharCode(...array) fails for large files
+    // FileReader approach handles large audio files efficiently
+    // Avoids memory issues with spread operator on large arrays
+    
+    return new Promise<string>((resolve, reject) => {
+      const blob = new Blob([arrayBuffer]);
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          // Remove data:application/octet-stream;base64, prefix
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('Failed to convert ArrayBuffer to base64'));
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('FileReader error during base64 conversion'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ========= REGENERATION BOUNDARY END: Base64 Helper =========
 
   // ========= REGENERATION BOUNDARY START: Format Support =========
   // @phazzie: Supported formats can be regenerated when capabilities change
