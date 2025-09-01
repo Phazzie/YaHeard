@@ -212,7 +212,6 @@ export class WhisperProcessor implements AudioProcessor {
         id: `whisper-${Date.now()}`,
         serviceName: this.serviceName,
         text: data.text,
-        confidence: 0.95, // Whisper typically has high confidence
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {

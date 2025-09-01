@@ -216,7 +216,7 @@ export class DeepgramProcessor implements AudioProcessor {
         id: `deepgram-${Date.now()}`,
         serviceName: this.serviceName,
         text: data.results?.channels?.[0]?.alternatives?.[0]?.transcript || '',
-        confidence: data.results?.channels?.[0]?.alternatives?.[0]?.confidence || 0.9,
+        confidence: data.results?.channels?.[0]?.alternatives?.[0]?.confidence,
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {

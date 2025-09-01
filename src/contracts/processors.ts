@@ -226,7 +226,7 @@ export interface ComparisonEngine {
   compareTranscriptions(results: TranscriptionResult[]): ConsensusResult;
 
   /** Calculate confidence score for consensus text */
-  calculateConsensusConfidence(results: TranscriptionResult[]): number;
+  calculateConsensusConfidence(results: TranscriptionResult[], winningText: string): number;
 
   /** Identify disagreements between services */
   findDisagreements(results: TranscriptionResult[]): Disagreement[];

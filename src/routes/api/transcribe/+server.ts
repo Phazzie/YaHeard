@@ -156,36 +156,34 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
     } catch (consensusError) {
       console.error('@phazzie-error: Consensus calculation failed:', consensusError);
       
-      // Fallback: Return the best individual result if consensus fails
-      const bestResult = successfulResults.reduce((best, current) => 
-        current.confidence > best.confidence ? current : best
-      );
+      // Fallback: Return the first successful result if consensus fails
+      const bestResult = successfulResults[0];
 
       return json({
         success: true,
         result: {
           finalText: bestResult.text,
-          consensusConfidence: bestResult.confidence,
+          consensusConfidence: bestResult.confidence ?? 0,
           individualResults: successfulResults,
           disagreements: [],
           stats: {
             totalProcessingTimeMs: successfulResults.reduce((sum, r) => sum + (r.processingTimeMs || 0), 0),
             servicesUsed: successfulResults.length,
-            averageConfidence: successfulResults.reduce((sum, r) => sum + r.confidence, 0) / successfulResults.length,
+            averageConfidence: 0,
             disagreementCount: 0
           },
           reasoning: {
             steps: [{
               stepNumber: 1,
-              description: `Fallback: Using best individual result from ${bestResult.serviceName} due to consensus engine error`,
+              description: `Fallback: Using first available result from ${bestResult.serviceName} due to consensus engine error.`,
               type: 'fallback' as const,
-              data: { selectedService: bestResult.serviceName, confidence: bestResult.confidence },
+              data: { selectedService: bestResult.serviceName },
               timestamp: new Date()
             }],
             decisionFactors: [],
             conflictResolution: [],
             qualityAssessment: [],
-            finalReasoning: `Consensus engine failed, selected ${bestResult.serviceName} with ${(bestResult.confidence * 100).toFixed(1)}% confidence as fallback.`
+            finalReasoning: `Consensus engine failed. Using result from ${bestResult.serviceName} as a fallback.`
           }
         }
       });

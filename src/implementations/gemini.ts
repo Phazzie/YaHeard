@@ -220,25 +220,10 @@ export class GeminiProcessor implements AudioProcessor {
       // Handle cases where structure might be different
 
       let transcribedText = '';
-      let confidence = 0.85; // Gemini doesn't provide confidence, use reasonable default
-
       if (data.candidates && data.candidates.length > 0 && 
           data.candidates[0].content && data.candidates[0].content.parts && 
           data.candidates[0].content.parts.length > 0) {
         transcribedText = data.candidates[0].content.parts[0].text || '';
-        
-        // WHY CONFIDENCE ESTIMATION:
-        // ==========================
-        // Gemini doesn't provide explicit confidence scores
-        // We estimate based on response completeness and length
-        // Longer responses generally indicate better processing
-        if (transcribedText.length > 50) {
-          confidence = 0.90;
-        } else if (transcribedText.length > 10) {
-          confidence = 0.85;
-        } else {
-          confidence = 0.70;
-        }
       } else {
         console.warn('@phazzie-warning: Unexpected Gemini response structure');
         throw new Error('Gemini returned unexpected response structure');
@@ -254,7 +239,7 @@ export class GeminiProcessor implements AudioProcessor {
         id: `gemini-${Date.now()}`,
         serviceName: this.serviceName,
         text: transcribedText.trim(),
-        confidence: confidence,
+        confidence: undefined, // Gemini does not provide a confidence score.
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
@@ -266,7 +251,6 @@ export class GeminiProcessor implements AudioProcessor {
       };
 
       console.log(`@phazzie-checkpoint-gemini-10: Gemini processing completed in ${processingTime}ms`);
-      console.log(`@phazzie-checkpoint-gemini-11: Transcribed ${transcribedText.length} characters with ${(confidence * 100).toFixed(1)}% confidence`);
 
       return result;
 
@@ -325,16 +309,7 @@ export class GeminiProcessor implements AudioProcessor {
     // Base64 encoding allows format flexibility
     // May support additional formats in future API versions
     
-    return [
-      'audio/wav',
-      'audio/mpeg',
-      'audio/mp3',
-      'audio/mp4',
-      'audio/m4a',
-      'audio/ogg',
-      'audio/webm',
-      'audio/flac'
-    ];
+    return ['.wav', '.mp3', '.m4a', '.ogg', '.webm', '.flac'];
   }
 
   // ========= REGENERATION BOUNDARY END: Format Support =========

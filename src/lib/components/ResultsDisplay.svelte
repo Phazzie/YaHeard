@@ -34,8 +34,9 @@ let activeTab = 'overview';
   // @dependencies: Component props
 
   $: hasResults = results.length > 0;
-  $: averageConfidence = hasResults
-    ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length
+  $: resultsWithConfidence = results.filter(r => typeof r.confidence === 'number');
+  $: averageConfidence = resultsWithConfidence.length > 0
+    ? resultsWithConfidence.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / resultsWithConfidence.length
     : 0;
   $: totalProcessingTime = hasResults
     ? results.reduce((sum, r) => sum + r.processingTimeMs, 0)
@@ -48,7 +49,8 @@ let activeTab = 'overview';
   // @contract: Must provide utility functions for display
   // @dependencies: None
 
-  function formatConfidence(confidence: number): string {
+  function formatConfidence(confidence: number | undefined): string {
+    if (confidence === undefined) return 'N/A';
     return `${(confidence * 100).toFixed(1)}%`;
   }
 
@@ -59,7 +61,8 @@ let activeTab = 'overview';
     return `${(milliseconds / 1000).toFixed(1)}s`;
   }
 
-  function getConfidenceColor(confidence: number): string {
+  function getConfidenceColor(confidence: number | undefined): string {
+    if (confidence === undefined) return 'text-gray-500';
     if (confidence >= 0.9) return 'text-neon-green';
     if (confidence >= 0.7) return 'text-neon-yellow';
     return 'text-neon-pink';
