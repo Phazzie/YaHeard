@@ -1,217 +1,135 @@
+import type { AudioProcessor, AssemblyAIConfig } from '../contracts/processors';
+import type { TranscriptionResult } from '../contracts/transcription';
+
+const UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload';
+const TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript';
+
 /**
- * =============================================================================
- * @file assembly.ts - ASSEMBLYAI PROCESSOR IMPLEMENTATION
- * =============================================================================
- *
- * WHY THIS FILE EXISTS:
- * =====================
- * This file implements the AudioProcessor interface for AssemblyAI's advanced transcription service.
- * AssemblyAI provides high accuracy transcription with additional features like speaker diarization.
- * This implementation can be completely regenerated when AssemblyAI's API changes.
- *
- * @phazzie-status working
- * @last-regenerated 2025-08-29 15:30 UTC
- * @dependencies processors.ts contract - Implements AudioProcessor interface
- *
- * ARCHITECTURAL ROLE:
- * ===================
- * 1. ASSEMBLYAI INTEGRATION: Connects to AssemblyAI's advanced API
- * 2. CONTRACT COMPLIANCE: Implements AudioProcessor interface exactly
- * 3. ERROR HANDLING: Graceful failure with @phazzie-friendly messages
- * 4. ADVANCED FEATURES: Speaker diarization, sentiment analysis
- *
- * REGENERATION RULES:
- * ===================
- * ✅ COMPLETE REGENERATION ALLOWED: This entire file can be rewritten
- * ✅ CONTRACT MUST BE MAINTAINED: Must still implement AudioProcessor
- * ✅ API CHANGES: Regenerate when AssemblyAI API updates
- * ✅ NEW FEATURES: Regenerate when adding AssemblyAI-specific features
- *
- * ASSEMBLYAI-SPECIFIC CONSIDERATIONS:
- * ===================================
- * - Two-step process: upload audio, then transcribe
- * - Polling required to check transcription status
- * - Advanced features like speaker identification
- * - Higher cost but better accuracy than basic services
- *
- * REGENERATION SCENARIOS:
- * =======================
- * 1. **API Changes**: AssemblyAI updates their API
- * 2. **New Features**: Add speaker diarization, sentiment analysis
- * 3. **Cost Changes**: Pricing updates
- * 4. **Bug Fixes**: API integration issues
+ * Implements the AudioProcessor interface for AssemblyAI.
+ * This processor uses a two-step process: upload and transcribe with polling.
  */
-
-import type { AudioProcessor, ProcessorConfig } from '../contracts/processors.ts';
-import type { TranscriptionResult } from '../contracts/transcription.ts';
-
-// ========= REGENERATION BOUNDARY START: AssemblyAI Implementation =========
-// @phazzie: This entire file can be regenerated independently
-// @contract: Must implement AudioProcessor interface
-// @dependencies: processors.ts contract
-
 export class AssemblyAIProcessor implements AudioProcessor {
-  serviceName = 'AssemblyAI';
-  private config: ProcessorConfig;
+  readonly serviceName = 'AssemblyAI';
+  private config: AssemblyAIConfig;
 
-  constructor(config: ProcessorConfig = {}) {
+  constructor(config: AssemblyAIConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-assembly-1: AssemblyAI processor initialized');
   }
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-assembly-2: Checking AssemblyAI availability');
-
-    if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-assembly-3: No API key configured');
-      return false;
-    }
-
-    console.log('@phazzie-checkpoint-assembly-4: AssemblyAI is available');
-    return true;
+    return !!this.config.apiKey;
   }
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-assembly-5: Starting REAL AssemblyAI processing');
+    if (!this.config.apiKey) {
+      throw new Error('AssemblyAI API key not configured.');
+    }
 
     try {
-      // WHY REAL API IMPLEMENTATION:
-      // ============================
-      // Previous version was placeholder - now using actual AssemblyAI API
-      // AssemblyAI provides high accuracy with advanced features
-      // Two-step process: upload audio, then transcribe
-
-      if (!this.config.apiKey) {
-        throw new Error('ASSEMBLYAI_API_KEY not configured - add to environment variables');
-      }
-
-      console.log('@phazzie-checkpoint-assembly-6: Converting file to buffer');
-
-      // Convert File to ArrayBuffer for upload
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-
       const startTime = Date.now();
 
-      // WHY TWO-STEP PROCESS:
-      // =====================
-      // AssemblyAI requires separate upload and transcription steps
-      // Upload returns a URL, then transcription is requested
-      // Polling is needed to check completion status
+      // Step 1: Upload the audio file to get a URL.
+      const uploadUrl = await this.uploadFile(file);
 
-      console.log('@phazzie-checkpoint-assembly-7: Uploading audio to AssemblyAI');
+      // Step 2: Request transcription for the uploaded file.
+      const transcriptId = await this.requestTranscription(uploadUrl);
 
-      // Step 1: Upload audio file
-      const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
-        method: 'POST',
-        headers: {
-          'authorization': this.config.apiKey,
-          'content-type': 'application/octet-stream'
-        },
-        body: uint8Array
-      });
+      // Step 3: Poll for the transcription result.
+      const result = await this.pollForResult(transcriptId);
 
-      if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.status}`);
-      }
+      const processingTime = Date.now() - startTime;
 
-      const { upload_url } = await uploadResponse.json();
-
-      console.log('@phazzie-checkpoint-assembly-8: Requesting transcription');
-
-      // Step 2: Request transcription
-      const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
-        method: 'POST',
-        headers: {
-          'authorization': this.config.apiKey,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          audio_url: upload_url,
-          language_code: 'en'
-        })
-      });
-
-      if (!transcriptResponse.ok) {
-        throw new Error(`Transcription request failed: ${transcriptResponse.status}`);
-      }
-
-      const { id } = await transcriptResponse.json();
-
-      console.log('@phazzie-checkpoint-assembly-9: Polling for completion');
-
-      // Step 3: Poll for results (max 60 seconds)
-      let attempts = 0;
-      const maxAttempts = 60;
-
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${id}`, {
-          headers: {
-            'authorization': this.config.apiKey
-          }
-        });
-
-        const result = await statusResponse.json();
-
-        if (result.status === 'completed') {
-          console.log('@phazzie-checkpoint-assembly-10: Transcription completed successfully');
-
-          const processingTime = Date.now() - startTime;
-
-          const transcriptionResult: TranscriptionResult = {
-            id: `assembly-${Date.now()}`,
-            serviceName: this.serviceName,
-            text: result.text,
-            confidence: result.confidence,
-            processingTimeMs: processingTime,
-            timestamp: new Date(),
-            metadata: {
-              model: 'assembly-ai-best',
-              language: result.language_code || 'en',
-              wordCount: result.text.split(' ').length,
-              features: ['speaker_diarization', 'sentiment_analysis']
-            }
-          };
-
-          console.log('@phazzie-checkpoint-assembly-11: Returning transcription result');
-          return transcriptionResult;
-
-        } else if (result.status === 'error') {
-          throw new Error('AssemblyAI transcription failed');
+      return {
+        id: `assembly-${Date.now()}`,
+        serviceName: this.serviceName,
+        text: result.text,
+        confidence: result.confidence,
+        processingTimeMs: processingTime,
+        timestamp: new Date(),
+        metadata: {
+          model: 'assembly-ai-best', // AssemblyAI doesn't specify model versions in the response
+          language: result.language_code,
+          wordCount: result.words.length,
+          rawResponse: result // Include the raw response for more details if needed
         }
-
-        attempts++;
-      }
-
-      throw new Error('Transcription timeout after 60 seconds');
-
+      };
     } catch (error) {
-      // WHY THIS ERROR HANDLING:
-      // ========================
-      // Must provide @phazzie-friendly error messages
-      // Should guide regeneration when things break
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-assembly:', errorMessage);
-      console.error('ASSEMBLYAI REGENERATION NEEDED:');
-      console.error('1. Check ASSEMBLYAI_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to AssemblyAI');
-
-      throw new Error(`REGENERATE_NEEDED: AssemblyAI API integration - ${errorMessage}`);
+      console.error(`AssemblyAI processor error: ${errorMessage}`);
+      throw new Error(`AssemblyAI processor failed: ${errorMessage}`);
     }
   }
 
-  getCostPerMinute(): number {
-    return 0.025; // $0.025 per minute for AssemblyAI
+  private async uploadFile(file: File): Promise<string> {
+    const response = await fetch(UPLOAD_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'authorization': this.config.apiKey!,
+        'content-type': 'application/octet-stream'
+      },
+      body: await file.arrayBuffer()
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
+
+    const { upload_url } = await response.json();
+    return upload_url;
+  }
+
+  private async requestTranscription(audioUrl: string): Promise<string> {
+    const response = await fetch(TRANSCRIPT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'authorization': this.config.apiKey!,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        audio_url: audioUrl,
+        language_code: this.config.options?.language || 'en'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Transcription request failed with status ${response.status}`);
+    }
+
+    const { id } = await response.json();
+    return id;
+  }
+
+  private async pollForResult(transcriptId: string): Promise<any> {
+    const pollingEndpoint = `${TRANSCRIPT_ENDPOINT}/${transcriptId}`;
+    const maxAttempts = 30; // Poll for 30 seconds
+    const delay = 1000;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+      const response = await fetch(pollingEndpoint, {
+        headers: { 'authorization': this.config.apiKey! }
+      });
+      const result = await response.json();
+
+      if (result.status === 'completed') {
+        return result;
+      }
+      if (result.status === 'error') {
+        throw new Error(`Transcription failed: ${result.error}`);
+      }
+    }
+
+    throw new Error('Transcription polling timed out after 30 seconds.');
+  }
+
+  async getCostPerMinute(): Promise<number> {
+    // AssemblyAI pricing as of late 2024.
+    return 0.025;
   }
 
   getSupportedFormats(): string[] {
+    // Based on AssemblyAI API documentation.
     return ['.mp3', '.wav', '.m4a', '.webm', '.flac'];
   }
 }
-
-// ========= REGENERATION BOUNDARY END: AssemblyAI Implementation =========
