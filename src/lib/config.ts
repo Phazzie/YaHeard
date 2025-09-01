@@ -32,9 +32,10 @@ export const CONSENSUS_CONFIG = {
   
   /** Decision factor weights for consensus calculation */
   DECISION_WEIGHTS: {
-    CONFIDENCE_SCORE: 0.6,
-    PROCESSING_SPEED: 0.2,
-    TEXT_LENGTH_CONSISTENCY: 0.2
+    TEXT_SIMILARITY: 0.7,
+    CONFIDENCE_SCORE: 0.15,
+    PROCESSING_SPEED: 0.15,
+    TEXT_LENGTH_CONSISTENCY: 0.0 // Deprecated but kept for compatibility
   }
 } as const;
 

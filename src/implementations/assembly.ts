@@ -164,7 +164,7 @@ export class AssemblyAIProcessor implements AudioProcessor {
             id: `assembly-${Date.now()}`,
             serviceName: this.serviceName,
             text: result.text,
-            confidence: result.confidence || 0.92,
+            confidence: result.confidence,
             processingTimeMs: processingTime,
             timestamp: new Date(),
             metadata: {

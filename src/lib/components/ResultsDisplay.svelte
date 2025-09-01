@@ -34,8 +34,9 @@ let activeTab = 'overview';
   // @dependencies: Component props
 
   $: hasResults = results.length > 0;
-  $: averageConfidence = hasResults
-    ? results.reduce((sum, r) => sum + r.confidence, 0) / results.length
+  $: resultsWithConfidence = results.filter(r => r.confidence !== undefined);
+  $: averageConfidence = resultsWithConfidence.length > 0
+    ? resultsWithConfidence.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / resultsWithConfidence.length
     : 0;
   $: totalProcessingTime = hasResults
     ? results.reduce((sum, r) => sum + r.processingTimeMs, 0)
@@ -48,7 +49,8 @@ let activeTab = 'overview';
   // @contract: Must provide utility functions for display
   // @dependencies: None
 
-  function formatConfidence(confidence: number): string {
+  function formatConfidence(confidence: number | undefined): string {
+    if (confidence === undefined) return 'N/A';
     return `${(confidence * 100).toFixed(1)}%`;
   }
 
@@ -180,7 +182,7 @@ let activeTab = 'overview';
               </div>
               <div class="flex items-center space-x-4">
                 <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-green/30">
-                  <span class="text-lg font-bold {getConfidenceColor(result.confidence)}">
+                  <span class="text-lg font-bold {getConfidenceColor(result.confidence ?? 0)}">
                     {formatConfidence(result.confidence)}
                   </span>
                 </div>
