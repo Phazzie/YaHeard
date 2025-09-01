@@ -3,5 +3,10 @@
   "devCommand": "npm run dev",
   "framework": "sveltekit",
   "installCommand": "npm install",
-  "outputDirectory": ".svelte-kit"
+  "outputDirectory": ".svelte-kit",
+  "functions": {
+    "src/routes/api/transcribe/+server.ts": {
+      "maxDuration": 300
+    }
+  }
 }

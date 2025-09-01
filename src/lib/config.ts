@@ -66,7 +66,7 @@ export const UI_CONFIG = {
  */
 export const PERFORMANCE_CONFIG = {
   /** Maximum file size allowed for upload (bytes) - from original config */
-  MAX_FILE_SIZE_BYTES: 60 * 1024 * 1024, // 60MB
+  MAX_FILE_SIZE_BYTES: 25 * 1024 * 1024, // 25MB - Vercel limit
   
   /** Timeout for individual AI service processing (milliseconds) */
   SERVICE_TIMEOUT_MS: 30000, // 30 seconds

@@ -85,21 +85,21 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
  * MAXIMUM FILE SIZE LIMIT - PREVENTING ABUSE
  * =============================================================================
  *
- * WHY 60MB LIMIT:
+ * WHY 25MB LIMIT:
  * ===============
- * - Balances user needs with server costs
- * - Prevents abuse of free tier services
- * - Keeps processing times reasonable
- * - Allows for Vercel serverless limits
+ * - Vercel serverless functions have strict payload limits
+ * - Prevents 413 "Payload Too Large" errors
+ * - Most audio files under 25MB are reasonable length
+ * - Keeps processing times under timeout limits
  *
  * ARCHITECTURAL DECISION:
  * =======================
  * Defined as constant because:
  * 1. Used in multiple places (validation, UI, API)
  * 2. Changing requires testing across all components
- * 3. Business decision that affects pricing
+ * 3. Must match deployment platform limits
  */
-export const MAX_FILE_SIZE_BYTES = 60 * 1024 * 1024; // 60MB
+export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
 
 /**
  * =============================================================================
