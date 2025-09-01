@@ -293,6 +293,12 @@ export interface ConsensusStats {
  * - qualityAssessment: Quality evaluation of each service
  * - finalReasoning: Summary of why this consensus was chosen
  *
+ * VALIDATION CONSTRAINTS:
+ * =======================
+ * - steps.length: 1-100 steps (prevent memory issues)
+ * - decisionFactors: weights must sum to ≤ 1.0
+ * - qualityAssessment: scores must be 0.0-1.0
+ *
  * ARCHITECTURAL BENEFIT:
  * ======================
  * This provides transparency into:
@@ -408,7 +414,7 @@ export interface ServiceQualityAssessment {
 
 /**
  * =============================================================================
- * CONTRACT COMPLIANCE GUARANTEES
+ * CONTRACT COMPLIANCE GUARANTEES & RUNTIME VALIDATION
  * =============================================================================
  *
  * By importing and using these interfaces, all parts of the system agree to:
@@ -423,3 +429,169 @@ export interface ServiceQualityAssessment {
  * - Integration is seamless and reliable
  * - The user experience remains consistent
  */
+
+/**
+ * =============================================================================
+ * USAGE EXAMPLES & IMPLEMENTATION PATTERNS
+ * =============================================================================
+ */
+
+/**
+ * @example Creating a TranscriptionResult from an AI service
+ * ```typescript
+ * const whisperResult: TranscriptionResult = {
+ *   id: crypto.randomUUID(),
+ *   serviceName: 'Whisper',
+ *   text: 'Hello, this is a transcription.',
+ *   confidence: 0.95,
+ *   processingTimeMs: 1250,
+ *   metadata: {
+ *     model: 'whisper-1',
+ *     language: 'en',
+ *     duration: 5.2
+ *   }
+ * };
+ * ```
+ */
+
+/**
+ * @example Creating AI reasoning for a consensus decision
+ * ```typescript
+ * const reasoning: AIReasoning = {
+ *   steps: [
+ *     {
+ *       stepNumber: 1,
+ *       description: 'Analyzed 3 transcription results',
+ *       type: 'analysis',
+ *       data: { resultCount: 3, averageConfidence: 0.87 },
+ *       timestamp: new Date()
+ *     }
+ *   ],
+ *   decisionFactors: [
+ *     {
+ *       factor: 'Confidence Score',
+ *       weight: 0.7,
+ *       impact: 'Selected highest confidence result',
+ *       favoredServices: ['Whisper']
+ *     }
+ *   ],
+ *   conflictResolution: [],
+ *   qualityAssessment: [
+ *     {
+ *       serviceName: 'Whisper',
+ *       qualityScore: 0.95,
+ *       strengths: ['High confidence', 'Fast processing'],
+ *       weaknesses: [],
+ *       recommendation: 'preferred',
+ *       analysisNotes: 'Excellent performance with clear audio'
+ *     }
+ *   ],
+ *   finalReasoning: 'Selected Whisper result based on superior confidence and quality.'
+ * };
+ * ```
+ */
+
+/**
+ * @example Validating data before processing
+ * ```typescript
+ * import { validateTranscriptionResult, validateConsensusResult } from './transcription.js';
+ * 
+ * // Validate individual result
+ * if (!validateTranscriptionResult(result)) {
+ *   throw new Error('Invalid transcription result');
+ * }
+ * 
+ * // Validate consensus before returning
+ * if (!validateConsensusResult(consensusData)) {
+ *   throw new Error('Invalid consensus result');
+ * }
+ * ```
+ */
+
+/**
+ * @example Handling different confidence thresholds
+ * ```typescript
+ * import { CONSENSUS_CONFIG } from '../lib/config.js';
+ * 
+ * const classifyResult = (result: TranscriptionResult) => {
+ *   if (result.confidence >= CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
+ *     return 'high_confidence';
+ *   } else if (result.confidence >= CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
+ *     return 'acceptable';
+ *   } else {
+ *     return 'low_confidence';
+ *   }
+ * };
+ * ```
+ */
+
+// ========= RUNTIME VALIDATION UTILITIES =========
+
+/**
+ * Validate a TranscriptionResult object
+ */
+export function validateTranscriptionResult(result: unknown): result is TranscriptionResult {
+  if (!result || typeof result !== 'object') return false;
+  
+  const r = result as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    typeof r.serviceName === 'string' &&
+    typeof r.text === 'string' &&
+    typeof r.confidence === 'number' &&
+    r.confidence >= 0 && r.confidence <= 1 &&
+    typeof r.processingTimeMs === 'number' &&
+    r.processingTimeMs >= 0 &&
+    r.timestamp instanceof Date
+  );
+}
+
+/**
+ * Validate a ConsensusResult object
+ */
+export function validateConsensusResult(result: unknown): result is ConsensusResult {
+  if (!result || typeof result !== 'object') return false;
+  
+  const r = result as Record<string, unknown>;
+  return (
+    typeof r.finalText === 'string' &&
+    typeof r.consensusConfidence === 'number' &&
+    r.consensusConfidence >= 0 && r.consensusConfidence <= 1 &&
+    Array.isArray(r.individualResults) &&
+    Array.isArray(r.disagreements) &&
+    typeof r.stats === 'object' &&
+    typeof r.reasoning === 'object'
+  );
+}
+
+/**
+ * Validate AI reasoning structure
+ */
+export function validateAIReasoning(reasoning: unknown): reasoning is AIReasoning {
+  if (!reasoning || typeof reasoning !== 'object') return false;
+  
+  const r = reasoning as Record<string, unknown>;
+  return (
+    Array.isArray(r.steps) &&
+    r.steps.length <= 100 && // Prevent memory issues
+    Array.isArray(r.decisionFactors) &&
+    Array.isArray(r.conflictResolution) &&
+    Array.isArray(r.qualityAssessment) &&
+    typeof r.finalReasoning === 'string'
+  );
+}
+
+/**
+ * Validate decision factors weights sum
+ */
+export function validateDecisionFactorWeights(factors: DecisionFactor[]): boolean {
+  const totalWeight = factors.reduce((sum, factor) => sum + factor.weight, 0);
+  return totalWeight <= 1.01; // Allow small floating point errors
+}
+
+/**
+ * Validate quality score is within bounds
+ */
+export function validateQualityScore(score: number): boolean {
+  return typeof score === 'number' && score >= 0 && score <= 1;
+}

@@ -35,6 +35,9 @@ interface Actions {
 }
 import type { AudioProcessor } from '../contracts/processors';
 import type { TranscriptionResult, ConsensusResult, AIReasoning, ReasoningStep, DecisionFactor, ConflictResolution, ServiceQualityAssessment } from '../contracts/transcription';
+import { validateTranscriptionResult, validateConsensusResult } from '../contracts/transcription.js';
+import { CONSENSUS_CONFIG, PERFORMANCE_CONFIG, QUALITY_CONFIG, ERROR_CONFIG } from '../lib/config.js';
+import { withErrorBoundary } from '../lib/ui-utils.js';
 import { AssemblyAIProcessor } from '../implementations/assembly';
 import { DeepgramProcessor } from '../implementations/deepgram';
 import { WhisperProcessor } from '../implementations/whisper';
@@ -77,44 +80,68 @@ import { ElevenLabsProcessor } from '../implementations/elevenlabs';
 function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
   console.log('@phazzie-checkpoint-consensus-1: Calculating consensus from', results.length, 'results');
 
-  const successful = results.filter(r => r.text && r.text.trim().length > 0);
-  const reasoning: AIReasoning = {
-    steps: [],
-    decisionFactors: [],
-    conflictResolution: [],
-    qualityAssessment: [],
-    finalReasoning: ''
-  };
+  try {
+    // Validate input data
+    const validResults = results.filter(result => {
+      const isValid = validateTranscriptionResult(result);
+      if (!isValid && result) {
+        console.warn(`Invalid transcription result from ${(result as any)?.serviceName || 'unknown service'}:`, result);
+      }
+      return isValid;
+    });
 
-  // Step 1: Initial Analysis
-  reasoning.steps.push({
-    stepNumber: 1,
-    description: `Received ${results.length} transcription results from AI services. Filtering out ${results.length - successful.length} failed results.`,
-    type: 'analysis',
-    data: { totalResults: results.length, successfulResults: successful.length },
-    timestamp: new Date()
-  });
-
-  if (successful.length === 0) {
-    console.log('@phazzie-checkpoint-consensus-2: No successful transcriptions');
-    reasoning.finalReasoning = 'All AI services failed to produce transcriptions. No consensus possible.';
-    return {
-      finalText: '',
-      consensusConfidence: 0,
-      individualResults: results,
-      disagreements: [],
-      stats: {
-        totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
-        servicesUsed: results.length,
-        averageConfidence: 0,
-        disagreementCount: 0
-      },
-      reasoning
+    const successful = validResults.filter(r => r.text && r.text.trim().length > 0);
+    const reasoning: AIReasoning = {
+      steps: [],
+      decisionFactors: [],
+      conflictResolution: [],
+      qualityAssessment: [],
+      finalReasoning: ''
     };
-  }
 
-  // Step 2: Confidence Analysis
-  const avgConfidence = successful.reduce((sum, r) => sum + r.confidence, 0) / successful.length;
+    // Step 1: Initial Analysis
+    reasoning.steps.push({
+      stepNumber: 1,
+      description: `Received ${results.length} transcription results from AI services. ${validResults.length} valid results, ${successful.length} successful transcriptions (${results.length - validResults.length} invalid, ${validResults.length - successful.length} failed).`,
+      type: 'analysis',
+      data: { 
+        totalResults: results.length, 
+        validResults: validResults.length,
+        successfulResults: successful.length,
+        validationErrors: results.length - validResults.length,
+        processingFailures: validResults.length - successful.length
+      },
+      timestamp: new Date()
+    });
+
+    if (successful.length === 0) {
+      console.log('@phazzie-checkpoint-consensus-2: No successful transcriptions');
+      reasoning.finalReasoning = `All AI services failed to produce valid transcriptions. Validation errors: ${results.length - validResults.length}, Processing failures: ${validResults.length - successful.length}. No consensus possible.`;
+      
+      const fallbackResult: ConsensusResult = {
+        finalText: '',
+        consensusConfidence: 0,
+        individualResults: results,
+        disagreements: [],
+        stats: {
+          totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
+          servicesUsed: results.length,
+          averageConfidence: 0,
+          disagreementCount: 0
+        },
+        reasoning
+      };
+
+      // Validate output even for failures
+      if (!validateConsensusResult(fallbackResult)) {
+        console.error('Fallback consensus result failed validation - this is a critical error');
+      }
+
+      return fallbackResult;
+    }
+
+    // Step 2: Confidence Analysis
+    const avgConfidence = successful.reduce((sum, r) => sum + r.confidence, 0) / successful.length;
   reasoning.steps.push({
     stepNumber: 2,
     description: `Analyzed confidence scores. Average confidence: ${(avgConfidence * 100).toFixed(1)}%`,
@@ -138,7 +165,7 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
 
   // Step 4: Agreement Analysis
   const avgLength = successful.reduce((sum, r) => sum + r.text.length, 0) / successful.length;
-  const agreementThreshold = avgLength * 0.3;
+  const agreementThreshold = avgLength * CONSENSUS_CONFIG.AGREEMENT_THRESHOLD;
   const agreementPercentage = Math.round(
     (successful.filter(r => Math.abs(r.text.length - avgLength) < agreementThreshold).length / successful.length) * 100
   );
@@ -155,19 +182,19 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
   reasoning.decisionFactors = [
     {
       factor: 'Confidence Score',
-      weight: 0.6,
+      weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE,
       impact: 'Higher confidence indicates better transcription quality',
       favoredServices: [bestResult.serviceName]
     },
     {
       factor: 'Processing Speed',
-      weight: 0.2,
+      weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.PROCESSING_SPEED,
       impact: 'Faster processing with maintained quality is preferred',
       favoredServices: successful.sort((a, b) => a.processingTimeMs - b.processingTimeMs).slice(0, 2).map(r => r.serviceName)
     },
     {
       factor: 'Text Length Consistency',
-      weight: 0.2,
+      weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.TEXT_LENGTH_CONSISTENCY,
       impact: 'Results with similar length suggest agreement on content scope',
       favoredServices: successful.filter(r => Math.abs(r.text.length - avgLength) < agreementThreshold).map(r => r.serviceName)
     }
@@ -182,17 +209,17 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
     const strengths: string[] = [];
     const weaknesses: string[] = [];
 
-    if (result.confidence >= 0.9) strengths.push('High confidence transcription');
-    if (result.processingTimeMs < 5000) strengths.push('Fast processing speed');
-    if (result.text.length > avgLength * 1.1) strengths.push('Detailed transcription');
+    if (result.confidence >= CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) strengths.push('High confidence transcription');
+    if (result.processingTimeMs < CONSENSUS_CONFIG.FAST_PROCESSING_THRESHOLD) strengths.push('Fast processing speed');
+    if (result.text.length > avgLength * QUALITY_CONFIG.LENGTH_VARIATION.DETAILED_THRESHOLD) strengths.push('Detailed transcription');
     
-    if (result.confidence < 0.7) weaknesses.push('Lower confidence score');
-    if (result.processingTimeMs > 10000) weaknesses.push('Slower processing time');
-    if (result.text.length < avgLength * 0.8) weaknesses.push('Shorter transcription than average');
+    if (result.confidence < CONSENSUS_CONFIG.LOW_CONFIDENCE_THRESHOLD) weaknesses.push('Lower confidence score');
+    if (result.processingTimeMs > CONSENSUS_CONFIG.SLOW_PROCESSING_THRESHOLD) weaknesses.push('Slower processing time');
+    if (result.text.length < avgLength * QUALITY_CONFIG.LENGTH_VARIATION.SHORT_THRESHOLD) weaknesses.push('Shorter transcription than average');
 
     let recommendation: 'preferred' | 'acceptable' | 'avoid' = 'acceptable';
-    if (qualityScore >= 0.8) recommendation = 'preferred';
-    if (qualityScore < 0.5) recommendation = 'avoid';
+    if (qualityScore >= QUALITY_CONFIG.QUALITY_THRESHOLDS.PREFERRED) recommendation = 'preferred';
+    if (qualityScore < QUALITY_CONFIG.QUALITY_THRESHOLDS.ACCEPTABLE) recommendation = 'avoid';
 
     return {
       serviceName: result.serviceName,
@@ -225,7 +252,7 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
   console.log('@phazzie-checkpoint-consensus-4: Best result from:', bestResult.serviceName);
   console.log('@phazzie-checkpoint-consensus-5: Agreement:', agreementPercentage + '%');
 
-  return {
+  const consensusResult: ConsensusResult = {
     finalText: bestResult.text,
     consensusConfidence: bestResult.confidence,
     individualResults: results,
@@ -238,6 +265,47 @@ function calculateConsensus(results: TranscriptionResult[]): ConsensusResult {
     },
     reasoning
   };
+
+  // Validate final result
+  if (!validateConsensusResult(consensusResult)) {
+    console.error('Generated consensus result failed validation:', consensusResult);
+    throw new Error('Generated consensus result is invalid');
+  }
+
+  return consensusResult;
+
+  } catch (error) {
+    console.error('Error in consensus calculation:', error);
+    
+    // Return fallback result with error information
+    const fallbackResult = results.find(r => r.text && r.text.trim().length > 0) || results[0];
+    
+    return {
+      finalText: fallbackResult?.text || '',
+      consensusConfidence: fallbackResult?.confidence || 0,
+      individualResults: results,
+      disagreements: [],
+      stats: {
+        totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
+        servicesUsed: results.length,
+        averageConfidence: results.reduce((sum, r) => sum + (r.confidence || 0), 0) / results.length,
+        disagreementCount: 0
+      },
+      reasoning: {
+        steps: [{
+          stepNumber: 1,
+          description: 'Consensus calculation failed, using fallback selection',
+          type: 'analysis',
+          data: { error: error instanceof Error ? error.message : 'Unknown error' },
+          timestamp: new Date()
+        }],
+        decisionFactors: [],
+        conflictResolution: [],
+        qualityAssessment: [],
+        finalReasoning: `Consensus calculation encountered an error. Using fallback result: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    };
+  }
 }
 
 // ========= REGENERATION BOUNDARY END: Consensus Algorithm =========
