@@ -8,8 +8,8 @@
 
 import type { ComparisonEngine } from '../contracts/processors.ts';
 import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning } from '../contracts/transcription.ts';
-import { validateTranscriptionResult, validateConsensusResult } from '../contracts/transcription';
-import { CONSENSUS_CONFIG, ERROR_CONFIG, PERFORMANCE_CONFIG, QUALITY_CONFIG } from '../lib/config';
+import { validateTranscriptionResult, validateConsensusResult } from '../contracts/transcription.js';
+import { CONSENSUS_CONFIG, ERROR_CONFIG, PERFORMANCE_CONFIG, QUALITY_CONFIG } from '../lib/config.js';
 
 // ========= REGENERATION BOUNDARY START: Comparison Engine Implementation =========
 // @phazzie: This entire file can be regenerated independently
@@ -21,6 +21,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     console.log('@phazzie-checkpoint-comparison-1: Starting consensus comparison');
 
     try {
+      // Validate input data
       const validResults = results.filter(result => {
         const isValid = validateTranscriptionResult(result);
         if (!isValid && result) {
@@ -39,26 +40,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       const consensusConfidence = this.calculateConsensusConfidence(validResults);
       const disagreements = this.findDisagreements(validResults);
       const stats = this.calculateStats(validResults);
+
       const textSimilarities = this.calculateOverallTextSimilarity(validResults);
       const processingTimeAnalysis = this.analyzeProcessingTimes(validResults);
-      const selectedService = validResults.find(r => r.text === consensusText)?.serviceName || 'unknown';
-
-      // Create a list of decision factors based on the new algorithm
-      const decisionFactors = [
-        {
-          factor: 'Text Similarity',
-          weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.TEXT_SIMILARITY,
-          impact: 'Primary factor for result selection, finding the text with the highest average agreement.',
-          favoredServices: [selectedService]
-        },
-        {
-          factor: 'Confidence Score',
-          weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE,
-          impact: 'Used as a secondary factor or tie-breaker. Only applies to services that provide a score.',
-          favoredServices: validResults.filter(r => r.confidence).sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, 2).map(r => r.serviceName)
-        }
-      ];
-
+      
       const consensusResult: ConsensusResult = {
         finalText: consensusText,
         consensusConfidence,
@@ -69,57 +54,84 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
           steps: [
             {
               stepNumber: 1,
-              description: `Processed ${validResults.length} valid transcription results.`,
+              description: `Processed ${validResults.length} valid transcription results (${results.length - validResults.length} invalid results filtered out)`,
               type: 'analysis',
-              data: { resultCount: validResults.length },
+              data: { 
+                resultCount: validResults.length,
+                filteredCount: results.length - validResults.length,
+                validationErrors: results.length - validResults.length > 0,
+                averageConfidence: validResults.reduce((sum, r) => sum + r.confidence, 0) / validResults.length
+              },
               timestamp: new Date()
             },
             {
               stepNumber: 2,
-              description: 'Calculated average text similarity for each result to find the best consensus.',
+              description: `Analyzed text similarity and processing performance across services`,
               type: 'comparison',
-              data: {
-                averageSimilarity: textSimilarities.averageSimilarity,
+              data: { 
+                textSimilarity: textSimilarities,
+                processingAnalysis: processingTimeAnalysis,
                 disagreementCount: disagreements.length
               },
               timestamp: new Date()
             },
             {
               stepNumber: 3,
-              description: 'Applied "Similarity-First" consensus algorithm.',
+              description: `Applied enhanced consensus algorithm with confidence and similarity weighting`,
               type: 'decision',
               data: {
-                algorithm: 'similarity-first-hybrid',
+                algorithm: 'confidence-similarity-hybrid',
                 consensusConfidence: consensusConfidence,
-                selectedService: selectedService
+                selectedService: validResults.find(r => r.text === consensusText)?.serviceName
               },
               timestamp: new Date()
             }
           ],
-          decisionFactors,
+          decisionFactors: [
+            {
+              factor: 'Confidence Score',
+              weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE,
+              impact: 'Primary factor for result selection with 70% weight',
+              favoredServices: validResults.sort((a, b) => b.confidence - a.confidence).slice(0, 2).map(r => r.serviceName)
+            },
+            {
+              factor: 'Text Similarity',
+              weight: 0.3,
+              impact: 'Secondary factor ensuring consensus among similar results',
+              favoredServices: textSimilarities.highSimilarity || []
+            },
+            {
+              factor: 'Processing Speed',
+              weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.PROCESSING_SPEED,
+              impact: processingTimeAnalysis.impact,
+              favoredServices: processingTimeAnalysis.fastestServices
+            }
+          ],
           conflictResolution: disagreements.length > 0 ? [{
             conflictingServices: validResults.map(r => r.serviceName),
-            conflictDescription: `${disagreements.length} disagreements found.`,
-            resolutionMethod: 'Chose the result with the highest average similarity to all other results.',
+            conflictDescription: `${disagreements.length} disagreements found with average severity ${(disagreements.reduce((sum, d) => sum + d.severity, 0) / disagreements.length).toFixed(2)}`,
+            resolutionMethod: 'Confidence-weighted selection with similarity validation',
             chosenResult: consensusText.substring(0, 50) + (consensusText.length > 50 ? '...' : ''),
             resolutionConfidence: consensusConfidence
           }] : [],
           qualityAssessment: validResults.map(result => {
+            const relativeConfidence = result.confidence / Math.max(...validResults.map(r => r.confidence));
             const processingScore = this.calculateProcessingScore(result.processingTimeMs);
-            const qualityScore = (result.confidence ? (result.confidence * 0.7) : 0.5) + (processingScore * 0.3);
+            
             return {
               serviceName: result.serviceName,
-              qualityScore,
+              qualityScore: (result.confidence * 0.7) + (processingScore * 0.3),
               strengths: this.identifyServiceStrengths(result, validResults),
               weaknesses: this.identifyServiceWeaknesses(result, validResults),
               recommendation: this.getServiceRecommendation(result, validResults),
-              analysisNotes: `Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) + '%' : 'N/A'}, Processing: ${result.processingTimeMs}ms, Text length: ${result.text.length} chars`
+              analysisNotes: `Confidence: ${(result.confidence * 100).toFixed(1)}% (${(relativeConfidence * 100).toFixed(0)}% relative), Processing: ${result.processingTimeMs}ms, Text length: ${result.text.length} chars`
             };
           }),
           finalReasoning: this.generateFinalReasoning(validResults, consensusText, consensusConfidence, disagreements, textSimilarities)
         }
       };
 
+      // Validate output
       if (!validateConsensusResult(consensusResult)) {
         console.error('Generated consensus result failed validation:', consensusResult);
         throw new Error('Generated consensus result is invalid');
@@ -130,7 +142,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
 
     } catch (error) {
       console.error('Error in consensus comparison:', error);
+      
+      // Return fallback result
       const fallbackResult = results.find(r => r.text && r.text.trim().length > 0) || results[0];
+      
       return {
         finalText: fallbackResult?.text || '',
         consensusConfidence: fallbackResult?.confidence || 0,
@@ -139,7 +154,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
         stats: {
           totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
           servicesUsed: results.length,
-          averageConfidence: results.reduce((sum, r) => sum + (r.confidence || 0), 0) / (results.filter(r => r.confidence).length || 1),
+          averageConfidence: results.reduce((sum, r) => sum + (r.confidence || 0), 0) / results.length,
           disagreementCount: 0
         },
         reasoning: {
@@ -162,55 +177,71 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   private calculateConsensusText(results: TranscriptionResult[]): string {
     console.log('@phazzie-checkpoint-comparison-4: Calculating consensus text from', results.length, 'results');
 
+    // Handle edge cases first - no results or single result
     if (results.length === 0) return '';
     if (results.length === 1) return results[0].text;
 
-    // CONSENSUS ALGORITHM: Similarity-First Hybrid Selection
-    // ======================================================
-    // This new algorithm prioritizes agreement between services.
-    // 1. SIMILARITY: Find the text that is most similar to all other texts.
-    // 2. CONFIDENCE: Use the service's confidence score (if available) as a tie-breaker.
+    // CONSENSUS ALGORITHM: Confidence-Similarity Hybrid Selection
+    // ===========================================================
+    // This algorithm balances two key factors:
+    // 1. CONFIDENCE: How sure each AI service is about its result (0.0-1.0)
+    // 2. SIMILARITY: How much the top results agree with each other
     //
     // WHY THIS APPROACH:
-    // - It's a true "consensus" algorithm, favoring agreement above all.
-    // - It's robust against services that don't provide confidence scores.
-    // - It prevents a single, overconfident service from dominating the results.
+    // - Pure confidence selection can pick outliers when one AI is overconfident
+    // - Pure similarity can favor mediocre results if they all agree poorly  
+    // - Hybrid approach ensures both quality and consensus validation
 
-    // STEP 1: Calculate average similarity for each result
-    // ====================================================
-    const resultsWithScores = results.map(candidate => {
-      const otherResults = results.filter(r => r.id !== candidate.id);
-      const totalSimilarity = otherResults.reduce((sum, other) => {
-        return sum + this.calculateTextSimilarity(candidate.text, other.text);
-      }, 0);
-      const averageSimilarity = otherResults.length > 0 ? totalSimilarity / otherResults.length : 1.0;
+    // STEP 1: Sort by confidence to identify the most confident results
+    // ================================================================
+    // We start with confidence as the primary signal because:
+    // - AI services provide calibrated confidence scores
+    // - Higher confidence usually correlates with better transcription quality
+    // - Creates a baseline of "probably good" results to validate
+    const sortedByConfidence = [...results].sort((a, b) => b.confidence - a.confidence);
+    const primaryCandidate = sortedByConfidence[0]; // The most confident result
 
+    // STEP 2: Analyze top candidates for text similarity
+    // ==================================================  
+    // We only look at the top 3 results (or all if fewer) because:
+    // - Lower confidence results are unlikely to be optimal anyway
+    // - Reduces computational complexity for large service counts
+    // - Focuses similarity analysis on viable candidates
+    const topResults = sortedByConfidence.slice(0, Math.min(3, results.length));
+    
+    // Calculate similarity and combined scores for each top candidate
+    const similarityScores = topResults.map(result => {
+      // Text similarity: How much this result agrees with the top confidence result
+      const similarity = this.calculateTextSimilarity(primaryCandidate.text, result.text);
+      
+      // COMBINED SCORE FORMULA: 70% confidence + 30% similarity
+      // ======================================================
+      // Confidence gets higher weight (0.7) because:
+      // - Individual AI confidence is a strong signal of transcription quality
+      // - Similarity is validation, not the primary decision factor
+      // - This ratio prevents low-confidence results from winning just because they're similar
+      const combinedScore = result.confidence * 0.7 + similarity * 0.3;
+      
       return {
-        ...candidate,
-        averageSimilarity
+        result,
+        similarity,
+        combinedScore
       };
     });
 
-    // STEP 2: Sort by the new scoring model
-    // =====================================
-    // Primary sort key: averageSimilarity (descending)
-    // Secondary sort key: confidence (descending, use a default for undefined)
-    resultsWithScores.sort((a, b) => {
-      if (a.averageSimilarity !== b.averageSimilarity) {
-        return b.averageSimilarity - a.averageSimilarity;
-      }
-      // Similarity is the same, use confidence as a tie-breaker
-      const confidenceA = a.confidence ?? 0;
-      const confidenceB = b.confidence ?? 0;
-      return confidenceB - confidenceA;
-    });
+    // STEP 3: Select the result with the best combined score
+    // =====================================================
+    // This ensures we get the result that is both:
+    // - Highly confident (AI thinks it did well)  
+    // - Similar to other top results (consensus validation)
+    const bestResult = similarityScores.reduce((best, current) => 
+      current.combinedScore > best.combinedScore ? current : best
+    );
 
-    const bestResult = resultsWithScores[0];
+    console.log('@phazzie-checkpoint-comparison-5: Selected text from', bestResult.result.serviceName, 
+                'with combined score', bestResult.combinedScore.toFixed(3));
 
-    console.log('@phazzie-checkpoint-comparison-5: Selected text from', bestResult.serviceName,
-                'with similarity score', bestResult.averageSimilarity.toFixed(3));
-
-    return bestResult.text;
+    return bestResult.result.text;
   }
 
   private calculateTextSimilarity(text1: string, text2: string): number {
@@ -268,43 +299,70 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     console.log('@phazzie-checkpoint-comparison-5: Calculating consensus confidence');
 
     if (results.length === 0) return 0;
-    if (results.length === 1) return results[0].confidence ?? 0.5;
 
-    // CONSENSUS CONFIDENCE ALGORITHM: Similarity-Based Confidence
+    // CONSENSUS CONFIDENCE ALGORITHM: Variance-Adjusted Average
+    // =========================================================
+    // This algorithm calculates how confident we should be in the final consensus
+    // by considering both individual AI confidence and agreement between services.
+    //
+    // WHY THIS APPROACH:
+    // - Individual confidence alone can be misleading (overconfident AI)
+    // - Agreement between services indicates reliable transcription
+    // - Low variance (high agreement) should boost consensus confidence
+    // - High variance (disagreement) should reduce consensus confidence
+
+    // STEP 1: Calculate base confidence from individual AI services
+    // ============================================================
+    // Simple average gives equal weight to all AI services
+    // This assumes all AI services are equally reliable (can be enhanced later)
+    const averageConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
+
+    // STEP 2: Calculate confidence variance (measure of agreement)
     // ===========================================================
-    // The confidence in our consensus is a measure of how much the chosen
-    // result agrees with the other results. A high degree of similarity
-    // with other services implies a high-quality, reliable consensus.
-
-    // STEP 1: Find the winning text using the main consensus algorithm
-    // ================================================================
-    const winningText = this.calculateConsensusText(results);
-    const winningResult = results.find(r => r.text === winningText);
-    if (!winningResult) return 0; // Should not happen
-
-    // STEP 2: Calculate the winner's average similarity to all other results
-    // ======================================================================
-    const otherResults = results.filter(r => r.id !== winningResult.id);
-    if (otherResults.length === 0) return winningResult.confidence ?? 1.0;
-
-    const totalSimilarity = otherResults.reduce((sum, other) => {
-      return sum + this.calculateTextSimilarity(winningText, other.text);
-    }, 0);
+    // Low variance = AI services agree on confidence levels = more reliable
+    // High variance = AI services disagree on confidence = less reliable
+    const confidenceVariance = this.calculateConfidenceVariance(results);
     
-    const averageSimilarity = totalSimilarity / otherResults.length;
+    // STEP 3: Apply agreement bonus for low variance
+    // =============================================
+    // Agreement bonus formula: max(0, 0.1 - variance)
+    // - If variance is 0 (perfect agreement): bonus = 0.1 (10% boost)
+    // - If variance is 0.05 (good agreement): bonus = 0.05 (5% boost)  
+    // - If variance is 0.1+ (poor agreement): bonus = 0 (no boost)
+    //
+    // WHY 0.1 THRESHOLD:
+    // - Confidence scores typically range 0.7-0.95 for good transcriptions
+    // - Variance of 0.1 means standard deviation of ~0.32, indicating disagreement
+    // - Below 0.1 variance suggests services generally agree on quality
+    const agreementBonus = Math.max(0, 0.1 - confidenceVariance);
 
-    // STEP 3: Blend with the winner's native confidence, if it exists
-    // ===============================================================
-    // The final confidence is primarily the similarity score, but we can
-    // factor in the winning service's own confidence as a bonus.
-    const winnerConfidence = winningResult.confidence;
-    if (winnerConfidence !== undefined) {
-      // Hybrid score: 80% from consensus agreement, 20% from service's own confidence
-      return (averageSimilarity * 0.8) + (winnerConfidence * 0.2);
-    }
+    // FINAL CONFIDENCE CALCULATION:
+    // =============================
+    // Final = base_average + agreement_bonus (capped at 1.0)
+    // This ensures consensus confidence reflects both individual quality and agreement
+    return Math.min(1.0, averageConfidence + agreementBonus);
+  }
 
-    // If the winner has no confidence score, the consensus confidence is purely its similarity score.
-    return averageSimilarity;
+  private calculateConfidenceVariance(results: TranscriptionResult[]): number {
+    // CONFIDENCE VARIANCE CALCULATION: Standard Deviation of AI Confidence Scores  
+    // ==========================================================================
+    // This measures how much AI services disagree about their confidence levels.
+    // Used to determine if there's consensus about transcription quality.
+    //
+    // LOW VARIANCE (< 0.05): Services agree on quality → boost consensus confidence
+    // HIGH VARIANCE (> 0.1): Services disagree on quality → reduce consensus confidence
+
+    if (results.length <= 1) return 0; // Can't calculate variance with single result
+
+    // Calculate mean confidence across all AI services
+    const mean = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
+    
+    // Calculate variance: average of squared differences from mean
+    const variance = results.reduce((sum, r) => sum + Math.pow(r.confidence - mean, 2), 0) / results.length;
+
+    // Return standard deviation (square root of variance)
+    // This gives us a measure in the same units as confidence scores (0.0-1.0)
+    return Math.sqrt(variance);
   }
 
   findDisagreements(results: TranscriptionResult[]): Disagreement[] {
@@ -379,19 +437,29 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       }
     }
 
-    // Remove duplicate disagreements (same services, similar severity)
+    // Remove duplicate disagreements (normalize service pairs and round severity)
+    // This improved algorithm handles edge cases by normalizing service names
+    // and rounding severity to prevent floating-point comparison issues
+    const normalizeServices = (serviceTexts: Record<string, string>) =>
+      Object.keys(serviceTexts).sort().join('|');
+
+    const roundSeverity = (severity: number) =>
+      Math.round(severity * 10) / 10; // round to one decimal place
+
     const uniqueDisagreements = disagreements.reduce((acc, current) => {
-      const existing = acc.find(d => {
-        const currentServices = Object.keys(current.serviceTexts).sort();
-        const existingServices = Object.keys(d.serviceTexts).sort();
-        return JSON.stringify(currentServices) === JSON.stringify(existingServices) &&
-               Math.abs(d.severity - current.severity) < 0.1;
+      const currentKey = normalizeServices(current.serviceTexts);
+      const currentSeverity = roundSeverity(current.severity);
+
+      const exists = acc.some(d => {
+        const existingKey = normalizeServices(d.serviceTexts);
+        const existingSeverity = roundSeverity(d.severity);
+        return existingKey === currentKey && existingSeverity === currentSeverity;
       });
-      
-      if (!existing) {
+
+      if (!exists) {
         acc.push(current);
       }
-      
+
       return acc;
     }, [] as Disagreement[]);
 
@@ -402,10 +470,8 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   private calculateStats(results: TranscriptionResult[]): ConsensusStats {
     console.log('@phazzie-checkpoint-comparison-8: Calculating statistics');
 
-    const resultsWithConfidence = results.filter(r => r.confidence !== undefined);
-    const averageConfidence = resultsWithConfidence.length > 0
-      ? resultsWithConfidence.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / resultsWithConfidence.length
-      : 0;
+    const totalProcessingTime = results.reduce((sum, r) => sum + (r.processingTimeMs || 0), 0);
+    const averageConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
 
     return {
       totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
@@ -562,9 +628,9 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     // ===========================
     // High confidence suggests the AI service is very sure about its transcription
     // We use two thresholds to distinguish excellent vs good performance
-    if ((result.confidence ?? 0) > CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
+    if (result.confidence > CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
       strengths.push('Excellent confidence score');
-    } else if ((result.confidence ?? 0) > CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
+    } else if (result.confidence > CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
       strengths.push('Good confidence score');
     }
 
@@ -615,7 +681,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     // ===========================
     // Low confidence suggests the AI service struggled with the audio
     // This could indicate poor audio quality, language issues, or service limitations
-    if ((result.confidence ?? 1.0) < CONSENSUS_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
+    if (result.confidence < CONSENSUS_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
       weaknesses.push('Low confidence score');
     }
 
@@ -655,11 +721,21 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     // ==================================================================
     // This algorithm classifies AI services into recommendation categories based
     // on combined confidence and performance metrics for user guidance.
+    //
+    // SCORING METHODOLOGY:
+    // - 70% weight on transcription confidence (accuracy indicator)
+    // - 30% weight on processing speed score (user experience factor)
+    // - Combined score determines recommendation tier
+    //
+    // RECOMMENDATION TIERS:
+    // - PREFERRED: High-quality, reliable services (score ≥ preferred threshold)
+    // - ACCEPTABLE: Adequate services with limitations (score ≥ acceptable threshold)
+    // - AVOID: Poor performance services (score < acceptable threshold)
 
-    // Use confidence if available, otherwise use a neutral default (0.7)
-    const confidence = result.confidence ?? 0.7;
-    const qualityScore = (confidence * CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE) + (this.calculateProcessingScore(result.processingTimeMs || 0) * CONSENSUS_CONFIG.DECISION_WEIGHTS.PROCESSING_SPEED);
+    // Calculate hybrid quality score combining accuracy and performance
+    const qualityScore = (result.confidence * 0.7) + (this.calculateProcessingScore(result.processingTimeMs || 0) * 0.3);
 
+    // Apply recommendation thresholds for user-friendly classification
     if (qualityScore >= QUALITY_CONFIG.QUALITY_THRESHOLDS.PREFERRED) return 'preferred';
     if (qualityScore >= QUALITY_CONFIG.QUALITY_THRESHOLDS.ACCEPTABLE) return 'acceptable';
     return 'avoid';
@@ -675,25 +751,54 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     // FINAL REASONING GENERATOR: Comprehensive Decision Explanation
     // ============================================================
     // This algorithm creates human-readable explanations of the consensus
-    // decision process based on the "Similarity-First" model.
+    // decision process, helping users understand AI selection rationale.
+    //
+    // EXPLANATION COMPONENTS:
+    // 1. SELECTION SUMMARY: Which service was chosen and why
+    // 2. CONSENSUS QUALITY: How well services agreed with each other
+    // 3. DISAGREEMENT ANALYSIS: Areas of significant AI differences
+    // 4. CONFIDENCE ASSESSMENT: Overall reliability of the result
+    // 5. SERVICE PERFORMANCE: Individual AI service evaluations
 
+    // SELECTED SERVICE IDENTIFICATION
+    // ==============================
+    // Find which AI service provided the consensus text
+    // This helps users understand the primary source of the transcription
     const selectedService = validResults.find(r => r.text === consensusText)?.serviceName || 'unknown';
     const avgSimilarity = textSimilarities.averageSimilarity || 0;
 
-    let reasoning = `Selected transcription from "${selectedService}" based on the highest average text similarity of ${(avgSimilarity * 100).toFixed(1)}%. `;
-    reasoning += `The final consensus confidence is ${(consensusConfidence * 100).toFixed(1)}%. `;
+    // CORE SELECTION REASONING
+    // =======================
+    // Start with the fundamental decision: which service and confidence level
+    let reasoning = `Selected ${selectedService} transcription with ${(consensusConfidence * 100).toFixed(1)}% confidence from ${validResults.length} valid results. `;
 
-    if (disagreements.length > 0) {
-      reasoning += `Found and resolved ${disagreements.length} disagreements. `;
-    } else {
-      reasoning += 'All services produced highly similar results. ';
+    // CONSENSUS QUALITY ANALYSIS
+    // =========================
+    // High similarity indicates strong agreement between AI services
+    // This builds user confidence in the transcription accuracy
+    if (avgSimilarity > 0.8) {
+      reasoning += `High text similarity (${(avgSimilarity * 100).toFixed(1)}%) indicates strong consensus. `;
+    } else if (avgSimilarity < 0.5) {
+      reasoning += `Low text similarity (${(avgSimilarity * 100).toFixed(1)}%) indicates significant disagreement between services. `;
     }
 
-    const servicesWithConfidence = validResults.filter(r => r.confidence !== undefined);
-    if (servicesWithConfidence.length > 0) {
-      reasoning += `Confidence scores from ${servicesWithConfidence.length} service(s) were used as a secondary tie-breaker.`;
+    // DISAGREEMENT RESOLUTION TRANSPARENCY
+    // ===================================
+    // Report how conflicts between AI services were resolved
+    // This transparency helps users understand reliability limitations
+    if (disagreements.length > 0) {
+      reasoning += `Resolved ${disagreements.length} disagreements using confidence-weighted selection with similarity validation. `;
     } else {
-      reasoning += 'No services provided confidence scores.';
+      reasoning += `No significant disagreements detected between services. `;
+    }
+
+    // HIGH CONFIDENCE SERVICE COUNT
+    // ============================
+    // Count services that achieved high confidence scores
+    // Multiple high-confidence services increase overall reliability
+    const highConfidenceCount = validResults.filter(r => r.confidence > CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD).length;
+    if (highConfidenceCount > 0) {
+      reasoning += `${highConfidenceCount} service${highConfidenceCount > 1 ? 's' : ''} achieved high confidence scores. `;
     }
 
     return reasoning;

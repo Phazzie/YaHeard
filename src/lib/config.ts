@@ -24,6 +24,9 @@ export const CONSENSUS_CONFIG = {
   /** Below this confidence, results are considered low quality */
   LOW_CONFIDENCE_THRESHOLD: 0.7,
   
+  /** Below this confidence, results should be treated with extreme caution and avoided */
+  AVOID_THRESHOLD: 0.4,
+  
   /** Processing time threshold for "fast" services (milliseconds) */
   FAST_PROCESSING_THRESHOLD: 5000,
   
@@ -32,31 +35,31 @@ export const CONSENSUS_CONFIG = {
   
   /** Decision factor weights for consensus calculation */
   DECISION_WEIGHTS: {
-    TEXT_SIMILARITY: 0.7,
-    CONFIDENCE_SCORE: 0.15,
-    PROCESSING_SPEED: 0.15,
-    TEXT_LENGTH_CONSISTENCY: 0.0 // Deprecated but kept for compatibility
+    CONFIDENCE_SCORE: 0.6,
+    PROCESSING_SPEED: 0.2,
+    TEXT_LENGTH_CONSISTENCY: 0.2
   }
 } as const;
 
 // ========= UI CONFIGURATION =========
 
 /**
- * UI Display Configuration  
+ * UI Display Configuration
  * Controls various display thresholds and limits
  */
 export const UI_CONFIG = {
   /** Maximum characters to display in JSON data before truncation */
   MAX_JSON_DISPLAY_LENGTH: 1000,
   
+  /** Maximum items to show in objects/arrays before truncation (preserves JSON structure) */
+  MAX_JSON_DISPLAY_ITEMS: 50,
+  
   /** Number of particles to display in background animation */
   BACKGROUND_PARTICLE_COUNT: 12,
   
   /** Animation duration for background effects (seconds) */
   BACKGROUND_ANIMATION_DURATION: 12
-} as const;
-
-// ========= PERFORMANCE CONFIGURATION =========
+} as const;// ========= PERFORMANCE CONFIGURATION =========
 
 /**
  * Performance and Resource Limits
@@ -85,7 +88,7 @@ export const QUALITY_CONFIG = {
   QUALITY_THRESHOLDS: {
     PREFERRED: 0.8,
     ACCEPTABLE: 0.5,
-    AVOID: 0.5 // Below this threshold
+    AVOID: 0.25 // Below this threshold - significantly lower than acceptable for clear distinction
   },
   
   /** Text length variation thresholds (multiplier of average length) */

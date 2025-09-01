@@ -62,18 +62,46 @@ export function getRecommendationColor(recommendation: string): string {
 // ========= DATA FORMATTING UTILITIES =========
 
 /**
- * Safely stringify JSON data with size limits
+ * Safely stringify JSON data with size limits.
+ * Truncates objects/arrays at a property/item limit to preserve valid JSON.
  */
 export function formatJsonSafely(data: unknown): string {
-  try {
-    const jsonString = JSON.stringify(data, null, 2);
-    
-    if (jsonString.length > UI_CONFIG.MAX_JSON_DISPLAY_LENGTH) {
-      const truncated = jsonString.substring(0, UI_CONFIG.MAX_JSON_DISPLAY_LENGTH);
-      const lastNewline = truncated.lastIndexOf('\n');
-      return truncated.substring(0, lastNewline) + '\n  ... (truncated)';
+  const MAX_ITEMS = UI_CONFIG.MAX_JSON_DISPLAY_ITEMS ?? 50; // fallback if not set
+  let wasTruncated = false;
+
+  function truncate(obj: any, depth = 0): any {
+    if (Array.isArray(obj)) {
+      if (obj.length > MAX_ITEMS) {
+        wasTruncated = true;
+        return obj.slice(0, MAX_ITEMS).concat(['...(truncated)']);
+      }
+      return obj.map(item => truncate(item, depth + 1));
+    } else if (obj && typeof obj === 'object') {
+      const keys = Object.keys(obj);
+      if (keys.length > MAX_ITEMS) {
+        wasTruncated = true;
+        const truncatedObj: any = {};
+        for (const key of keys.slice(0, MAX_ITEMS)) {
+          truncatedObj[key] = truncate(obj[key], depth + 1);
+        }
+        truncatedObj['...(truncated)'] = true;
+        return truncatedObj;
+      }
+      const result: any = {};
+      for (const key of keys) {
+        result[key] = truncate(obj[key], depth + 1);
+      }
+      return result;
     }
-    
+    return obj;
+  }
+
+  try {
+    const safeData = truncate(data);
+    let jsonString = JSON.stringify(safeData, null, 2);
+    if (wasTruncated) {
+      jsonString += '\n/* Output truncated for display */';
+    }
     return jsonString;
   } catch (error) {
     return `[Error formatting data: ${error instanceof Error ? error.message : 'Unknown error'}]`;

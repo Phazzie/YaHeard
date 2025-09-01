@@ -11,14 +11,15 @@ interface RequestHandler {
   (event: { request: Request }): Promise<Response>;
 }
 import { json } from '@sveltejs/kit';
+import { PERFORMANCE_CONFIG } from '../../../lib/config.js';
 
 // REAL AI PROCESSOR IMPORTS - STEP 1 COMPLETE ✅
-import { WhisperProcessor } from '$lib/../implementations/whisper';
-import { AssemblyAIProcessor } from '$lib/../implementations/assembly';
-import { DeepgramProcessor } from '$lib/../implementations/deepgram';
-import { ElevenLabsProcessor } from '$lib/../implementations/elevenlabs';
-import { GeminiProcessor } from '$lib/../implementations/gemini';
-import { ConsensusComparisonEngine } from '$lib/../implementations/comparison';
+import { WhisperProcessor } from '../../../implementations/whisper.js';
+import { AssemblyAIProcessor } from '../../../implementations/assembly.js';
+import { DeepgramProcessor } from '../../../implementations/deepgram.js';
+import { ElevenLabsProcessor } from '../../../implementations/elevenlabs.js';
+import { GeminiProcessor } from '../../../implementations/gemini.js';
+import { ConsensusComparisonEngine } from '../../../implementations/comparison.js';
 
 // ========= REGENERATION BOUNDARY START: API Handler =========
 // @phazzie: This section can be regenerated independently
@@ -96,11 +97,23 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
     const processingPromises = processors.map(async (processor) => {
       try {
         console.log(`@phazzie-checkpoint-api-4c: Processing with ${processor.serviceName}`);
-        const result = await processor.processFile(audioFileFromUser);
+        
+        // Add timeout wrapper for each processor to prevent hanging requests
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Timeout after ${PERFORMANCE_CONFIG.SERVICE_TIMEOUT_MS}ms`)), 
+                    PERFORMANCE_CONFIG.SERVICE_TIMEOUT_MS);
+        });
+        
+        const result = await Promise.race([
+          processor.processFile(audioFileFromUser),
+          timeoutPromise
+        ]);
+        
         console.log(`@phazzie-checkpoint-api-4d: ${processor.serviceName} completed successfully`);
         return result;
       } catch (error) {
-        console.error(`@phazzie-error: ${processor.serviceName} failed:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`@phazzie-error: ${processor.serviceName} failed: ${errorMessage}`);
         // Return null for failed services - will be filtered out
         return null;
       }

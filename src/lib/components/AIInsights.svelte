@@ -26,7 +26,13 @@
   // Progressive disclosure state
   let showAllSteps = false;
   let showAllAssessments = false;
-  
+
+  // Reset progressive disclosure state when reasoning changes
+  $: if (reasoning) {
+    showAllSteps = false;
+    showAllAssessments = false;
+  }
+
   // Lazy loading thresholds
   const INITIAL_STEPS_SHOWN = 5;
   const INITIAL_ASSESSMENTS_SHOWN = 4;
@@ -190,7 +196,6 @@
         {#each reasoning.qualityAssessment.slice(0, showAllAssessments ? reasoning.qualityAssessment.length : INITIAL_ASSESSMENTS_SHOWN) as assessment}
           <div class="glass-morphism rounded-xl p-5 border border-white/10" 
                role="article"
-               aria-label="Quality assessment for {assessment.serviceName}">
                aria-label="Quality assessment for {assessment.serviceName}">
             <div class="flex items-center justify-between mb-4">
               <h4 class="text-lg font-bold text-white">{withErrorBoundary(() => assessment.serviceName, 'Service name unavailable', console.warn)}</h4>

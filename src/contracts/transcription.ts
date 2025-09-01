@@ -138,11 +138,8 @@ export interface TranscriptionResult {
   /** The actual transcribed text - the most important field */
   text: string;
 
-  /**
-   * Confidence score from 0.0 (not confident) to 1.0 (very confident).
-   * This is optional as not all services provide a reliable confidence score.
-   */
-  confidence?: number;
+  /** Confidence score from 0.0 (not confident) to 1.0 (very confident) */
+  confidence: number;
 
   /** How long the AI service took to process this file in milliseconds */
   processingTimeMs: number;
@@ -497,7 +494,7 @@ export interface ServiceQualityAssessment {
 /**
  * @example Validating data before processing
  * ```typescript
- * import { validateTranscriptionResult, validateConsensusResult } from './transcription';
+ * import { validateTranscriptionResult, validateConsensusResult } from './transcription.js';
  * 
  * // Validate individual result
  * if (!validateTranscriptionResult(result)) {
@@ -541,7 +538,8 @@ export function validateTranscriptionResult(result: unknown): result is Transcri
     typeof r.id === 'string' &&
     typeof r.serviceName === 'string' &&
     typeof r.text === 'string' &&
-    (typeof r.confidence === 'undefined' || (typeof r.confidence === 'number' && r.confidence >= 0 && r.confidence <= 1)) &&
+    typeof r.confidence === 'number' &&
+    r.confidence >= 0 && r.confidence <= 1 &&
     typeof r.processingTimeMs === 'number' &&
     r.processingTimeMs >= 0 &&
     r.timestamp instanceof Date
