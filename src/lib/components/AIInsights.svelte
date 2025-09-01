@@ -197,7 +197,6 @@
           <div class="glass-morphism rounded-xl p-5 border border-white/10" 
                role="article"
                aria-label="Quality assessment for {assessment.serviceName}">
-               aria-label="Quality assessment for {assessment.serviceName}">
             <div class="flex items-center justify-between mb-4">
               <h4 class="text-lg font-bold text-white">{withErrorBoundary(() => assessment.serviceName, 'Service name unavailable', console.warn)}</h4>
               <div class="flex items-center space-x-2">
