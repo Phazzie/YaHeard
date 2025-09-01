@@ -211,7 +211,7 @@ export class ElevenLabsProcessor implements AudioProcessor {
         id: `elevenlabs-${Date.now()}`,
         serviceName: this.serviceName,
         text: data.text || '',
-        confidence: data.confidence || 0.95, // ElevenLabs typically has high confidence
+        confidence: data.confidence,
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
