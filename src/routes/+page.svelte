@@ -166,15 +166,13 @@
       const result = await response.json();
       console.log('@phazzie-debug: API response received:', result);
       
-      // API returns: { success: true, result: consensusResult }
-      // We need to extract the actual data from result.result
-      if (result.success && result.result) {
-        const consensusData = result.result;
-        console.log('@phazzie-debug: Consensus data:', consensusData);
+      // API now directly returns ConsensusResult
+      if (result && result.finalText) {
+        console.log('@phazzie-debug: Consensus data:', result);
         
-        // Extract individual results and consensus
-        transcriptionResults = consensusData.individualResults || [];
-        consensusResult = consensusData || null;
+        // Extract individual results and consensus from direct response
+        transcriptionResults = result.individualResults || [];
+        consensusResult = result;
       } else {
         console.log('@phazzie-debug: No results in API response');
         transcriptionResults = [];
