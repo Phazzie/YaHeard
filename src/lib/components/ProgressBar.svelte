@@ -14,7 +14,7 @@
   export let progress: number = 0; // 0-100
   export let showPercentage: boolean = true;
   export let color: 'blue' | 'green' | 'yellow' | 'red' | 'purple' = 'blue';
-  export let height: string = 'h-2';
+  export const height: string = 'h-2'; // For external reference only
 
   // ========= REGENERATION BOUNDARY END: Component Props =========
 

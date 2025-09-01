@@ -3,51 +3,39 @@
    * @file AIInsights.svelte
    * @purpose Component to display AI reasoning and thought process
    * @phazzie-status working
-   * @last-regenerated 2025-01-29 20:00:00 UTC
-   * @dependencies transcription.ts contract
+   * @last-regenerated 2025-09-01 12:09:00 UTC
+   * @dependencies transcription.ts contract, ui-utils.ts
    */
 
   import type { AIReasoning, ReasoningStep, DecisionFactor, ConflictResolution, ServiceQualityAssessment } from '../../contracts/transcription.js';
+  import { 
+    getStepIcon, 
+    getStepColor, 
+    getQualityColor, 
+    getRecommendationColor,
+    formatJsonSafely,
+    formatConfidence,
+    formatProcessingTime,
+    withErrorBoundary,
+    getQualityLabel,
+    isLargeObject
+  } from '../ui-utils.js';
 
   export let reasoning: AIReasoning | null = null;
 
-  function getStepIcon(type: string): string {
-    switch (type) {
-      case 'analysis': return '🔍';
-      case 'comparison': return '⚖️';
-      case 'weighting': return '📊';
-      case 'decision': return '🎯';
-      case 'validation': return '✅';
-      default: return '🤖';
-    }
+  // Progressive disclosure state
+  let showAllSteps = false;
+  let showAllAssessments = false;
+
+  // Reset progressive disclosure state when reasoning changes
+  $: if (reasoning) {
+    showAllSteps = false;
+    showAllAssessments = false;
   }
 
-  function getStepColor(type: string): string {
-    switch (type) {
-      case 'analysis': return 'border-blue-400/50 bg-blue-500/10';
-      case 'comparison': return 'border-yellow-400/50 bg-yellow-500/10';
-      case 'weighting': return 'border-purple-400/50 bg-purple-500/10';
-      case 'decision': return 'border-green-400/50 bg-green-500/10';
-      case 'validation': return 'border-cyan-400/50 bg-cyan-500/10';
-      default: return 'border-white/30 bg-white/10';
-    }
-  }
-
-  function getQualityColor(score: number): string {
-    if (score >= 0.9) return 'text-green-400';
-    if (score >= 0.7) return 'text-yellow-400';
-    if (score >= 0.5) return 'text-orange-400';
-    return 'text-red-400';
-  }
-
-  function getRecommendationColor(recommendation: string): string {
-    switch (recommendation) {
-      case 'preferred': return 'text-green-400 bg-green-500/20';
-      case 'acceptable': return 'text-yellow-400 bg-yellow-500/20';
-      case 'avoid': return 'text-red-400 bg-red-500/20';
-      default: return 'text-gray-400 bg-gray-500/20';
-    }
-  }
+  // Lazy loading thresholds
+  const INITIAL_STEPS_SHOWN = 5;
+  const INITIAL_ASSESSMENTS_SHOWN = 4;
 </script>
 
 {#if reasoning}
@@ -59,7 +47,7 @@
         <div class="text-4xl">🧠</div>
         <h3 class="text-2xl font-bold text-cyan-400">AI Decision Summary</h3>
       </div>
-      <p class="text-lg text-white/90 leading-relaxed">{reasoning.finalReasoning}</p>
+      <p class="text-lg text-white/90 leading-relaxed">{withErrorBoundary(() => reasoning.finalReasoning, 'Unable to display reasoning summary', console.warn)}</p>
     </div>
 
     <!-- Reasoning Steps Timeline -->
@@ -69,27 +57,49 @@
         <h3 class="text-xl font-bold text-white">Processing Timeline</h3>
       </div>
       
-      <div class="space-y-4">
-        {#each reasoning.steps as step, index}
-          <div class="flex items-start space-x-4 {getStepColor(step.type)} rounded-xl p-4 border">
-            <div class="text-2xl flex-shrink-0 mt-1">{getStepIcon(step.type)}</div>
+      <div class="space-y-4" role="list" aria-label="AI reasoning steps">
+        {#each reasoning.steps.slice(0, showAllSteps ? reasoning.steps.length : INITIAL_STEPS_SHOWN) as step, index}
+          <div class="flex items-start space-x-4 {getStepColor(step.type)} rounded-xl p-4 border" 
+               role="listitem" 
+               aria-label="Step {step.stepNumber}: {step.type}">
+            <div class="text-2xl flex-shrink-0 mt-1" aria-hidden="true">{getStepIcon(step.type)}</div>
             <div class="flex-1">
               <div class="flex items-center space-x-2 mb-2">
                 <span class="text-sm font-mono text-gray-400">Step {step.stepNumber}</span>
                 <span class="px-2 py-1 text-xs rounded-full bg-white/20 text-white/80 capitalize">{step.type}</span>
               </div>
-              <p class="text-white/90">{step.description}</p>
+              <p class="text-white/90">{withErrorBoundary(() => step.description, 'Step description unavailable', console.warn)}</p>
               {#if step.data}
-                <div class="mt-2 text-sm text-gray-300 font-mono">
-                  {JSON.stringify(step.data, null, 2)}
+                <div class="mt-2 text-sm text-gray-300 font-mono" aria-label="Step data">
+                  {#if isLargeObject(step.data)}
+                    <details class="mt-1">
+                      <summary class="cursor-pointer text-cyan-400 hover:text-cyan-300">
+                        Show detailed data ({Object.keys(step.data).length} properties)
+                      </summary>
+                      <div class="mt-2 p-2 bg-black/20 rounded">
+                        {withErrorBoundary(() => formatJsonSafely(step.data), 'Data unavailable', console.warn)}
+                      </div>
+                    </details>
+                  {:else}
+                    {withErrorBoundary(() => formatJsonSafely(step.data), 'Data unavailable', console.warn)}
+                  {/if}
                 </div>
               {/if}
             </div>
-            <div class="text-xs text-gray-400 flex-shrink-0">
-              {new Date(step.timestamp).toLocaleTimeString()}
+            <div class="text-xs text-gray-400 flex-shrink-0" aria-label="Step timestamp">
+              {withErrorBoundary(() => new Date(step.timestamp).toLocaleTimeString(), 'Time unavailable', console.warn)}
             </div>
           </div>
         {/each}
+        
+        {#if reasoning.steps.length > INITIAL_STEPS_SHOWN && !showAllSteps}
+          <button 
+            class="w-full py-3 px-4 glass-morphism rounded-xl border border-cyan-400/30 text-cyan-400 hover:bg-cyan-500/10 transition-all duration-200"
+            on:click={() => showAllSteps = true}
+            aria-label="Show {reasoning.steps.length - INITIAL_STEPS_SHOWN} more reasoning steps">
+            Show {reasoning.steps.length - INITIAL_STEPS_SHOWN} More Steps ▼
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -100,19 +110,24 @@
         <h3 class="text-xl font-bold text-white">Decision Factors</h3>
       </div>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" role="list" aria-label="Decision factors">
         {#each reasoning.decisionFactors as factor}
-          <div class="glass-morphism rounded-xl p-4 border border-white/10">
+          <div class="glass-morphism rounded-xl p-4 border border-white/10" 
+               role="listitem"
+               aria-label="Decision factor: {factor.factor}">
+               aria-label="Decision factor: {factor.factor}">
             <div class="flex items-center justify-between mb-2">
-              <h4 class="font-semibold text-white">{factor.factor}</h4>
-              <div class="bg-white/20 rounded-full px-2 py-1 text-xs text-white">
-                Weight: {(factor.weight * 100).toFixed(0)}%
+              <h4 class="font-semibold text-white">{withErrorBoundary(() => factor.factor, 'Factor name unavailable', console.warn)}</h4>
+              <div class="bg-white/20 rounded-full px-2 py-1 text-xs text-white" 
+                   aria-label="Weight: {(factor.weight * 100).toFixed(0)} percent">
+                Weight: {withErrorBoundary(() => (factor.weight * 100).toFixed(0), '0', console.warn)}%
               </div>
             </div>
-            <p class="text-sm text-white/80 mb-3">{factor.impact}</p>
-            <div class="flex flex-wrap gap-2">
+            <p class="text-sm text-white/80 mb-3">{withErrorBoundary(() => factor.impact, 'Impact description unavailable', console.warn)}</p>
+            <div class="flex flex-wrap gap-2" role="list" aria-label="Favored services">
               {#each factor.favoredServices as service}
-                <span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                <span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400 border border-green-500/30"
+                      role="listitem">
                   {service}
                 </span>
               {/each}
@@ -178,27 +193,30 @@
       </div>
       
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {#each reasoning.qualityAssessment as assessment}
-          <div class="glass-morphism rounded-xl p-5 border border-white/10">
+        {#each reasoning.qualityAssessment.slice(0, showAllAssessments ? reasoning.qualityAssessment.length : INITIAL_ASSESSMENTS_SHOWN) as assessment}
+          <div class="glass-morphism rounded-xl p-5 border border-white/10" 
+               role="article"
+               aria-label="Quality assessment for {assessment.serviceName}">
             <div class="flex items-center justify-between mb-4">
-              <h4 class="text-lg font-bold text-white">{assessment.serviceName}</h4>
+              <h4 class="text-lg font-bold text-white">{withErrorBoundary(() => assessment.serviceName, 'Service name unavailable', console.warn)}</h4>
               <div class="flex items-center space-x-2">
-                <span class="text-2xl {getQualityColor(assessment.qualityScore)}">
-                  {(assessment.qualityScore * 100).toFixed(0)}%
+                <span class="text-2xl {getQualityColor(assessment.qualityScore)}" 
+                      aria-label={getQualityLabel(assessment.qualityScore)}>
+                  {withErrorBoundary(() => (assessment.qualityScore * 100).toFixed(0), '0', console.warn)}%
                 </span>
                 <span class="px-3 py-1 text-xs rounded-full {getRecommendationColor(assessment.recommendation)} border border-current">
-                  {assessment.recommendation.toUpperCase()}
+                  {withErrorBoundary(() => assessment.recommendation.toUpperCase(), 'UNKNOWN', console.warn)}
                 </span>
               </div>
             </div>
             
             <div class="mb-4">
               <h5 class="text-sm font-semibold text-green-400 mb-2">✅ Strengths:</h5>
-              <ul class="text-sm text-white/80 space-y-1">
+              <ul class="text-sm text-white/80 space-y-1" role="list">
                 {#each assessment.strengths as strength}
-                  <li class="flex items-start space-x-2">
-                    <span class="text-green-400 mt-0.5">•</span>
-                    <span>{strength}</span>
+                  <li class="flex items-start space-x-2" role="listitem">
+                    <span class="text-green-400 mt-0.5" aria-hidden="true">•</span>
+                    <span>{withErrorBoundary(() => strength, 'Strength unavailable', console.warn)}</span>
                   </li>
                 {/each}
               </ul>
@@ -207,11 +225,11 @@
             {#if assessment.weaknesses.length > 0}
               <div class="mb-4">
                 <h5 class="text-sm font-semibold text-orange-400 mb-2">⚠️ Areas for Improvement:</h5>
-                <ul class="text-sm text-white/80 space-y-1">
+                <ul class="text-sm text-white/80 space-y-1" role="list">
                   {#each assessment.weaknesses as weakness}
-                    <li class="flex items-start space-x-2">
-                      <span class="text-orange-400 mt-0.5">•</span>
-                      <span>{weakness}</span>
+                    <li class="flex items-start space-x-2" role="listitem">
+                      <span class="text-orange-400 mt-0.5" aria-hidden="true">•</span>
+                      <span>{withErrorBoundary(() => weakness, 'Weakness unavailable', console.warn)}</span>
                     </li>
                   {/each}
                 </ul>
@@ -219,10 +237,21 @@
             {/if}
             
             <div class="text-sm text-white/70 italic">
-              {assessment.analysisNotes}
+              {withErrorBoundary(() => assessment.analysisNotes, 'Analysis notes unavailable', console.warn)}
             </div>
           </div>
         {/each}
+        
+        {#if reasoning.qualityAssessment.length > INITIAL_ASSESSMENTS_SHOWN && !showAllAssessments}
+          <div class="lg:col-span-2">
+            <button 
+              class="w-full py-3 px-4 glass-morphism rounded-xl border border-cyan-400/30 text-cyan-400 hover:bg-cyan-500/10 transition-all duration-200"
+              on:click={() => showAllAssessments = true}
+              aria-label="Show {reasoning.qualityAssessment.length - INITIAL_ASSESSMENTS_SHOWN} more service assessments">
+              Show {reasoning.qualityAssessment.length - INITIAL_ASSESSMENTS_SHOWN} More Services ▼
+            </button>
+          </div>
+        {/if}
       </div>
     </div>
 
