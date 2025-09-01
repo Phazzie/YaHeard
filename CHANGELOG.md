@@ -1,5 +1,33 @@
 # Multi-AI Transcription Consensus Engine - Changelog
 
+## [2025-08-31 22:10 UTC] - ✅ CRITICAL BUG FIX & Codebase Hardening
+
+### 🎯 **WHY THIS UPDATE?**
+A comprehensive code audit revealed a critical architectural flaw that made the consensus engine non-functional. The engine was not performing a real comparison of transcriptions. This update fixes that core flaw and hardens the entire codebase by removing dead code and correcting systemic issues in the AI integrations.
+
+### 🔥 **WHAT WAS FIXED:**
+
+#### **1. Critical Flaw: Consensus Engine Refactoring**
+- ✅ **Fixed Broken Logic**: Replaced the flawed "confidence-first" algorithm with a robust "similarity-first" algorithm. The engine now performs a true consensus check.
+- ✅ **Centralized Logic**: Removed a duplicate, outdated version of the consensus engine from `+page.server.ts` and ensured the active API endpoint uses the single, correct implementation.
+
+#### **2. Systemic Issue: Hardened AI Processors**
+- ✅ **Removed Fabricated Data**: All AI processors (`AssemblyAI`, `Deepgram`, `Gemini`, `ElevenLabs`) have been refactored to stop using hardcoded or invented "confidence" scores. They now correctly report `undefined` when a real score is not available.
+- ✅ **Corrected API Contract**: Fixed a bug in the `Gemini` processor where it was returning MIME types instead of file extensions for supported formats.
+
+#### **3. Maintainability: Dead Code Removal**
+- ✅ **Deleted Redundant Files**: Removed the following unused files and directories, significantly cleaning up the codebase:
+    - `src/routes/+page.server.ts` (outdated logic)
+    - `src/lib/services/` (entire directory of redundant implementations)
+    - `src/lib/components/ResultsDisplay_backup.svelte` (old UI component)
+
+### 📊 **IMPACT:**
+- **Correctness**: The application's core feature now works as designed.
+- **Reliability**: The consensus engine now operates on real data, making its results trustworthy.
+- **Maintainability**: The codebase is significantly cleaner and easier to understand, reducing the risk of future bugs.
+
+---
+
 ## [2025-09-01 13:30 UTC] - 🚨 CRITICAL API ISSUE DISCOVERED + Code Quality Improvements
 
 ### 🚨 **CRITICAL FINDING**
