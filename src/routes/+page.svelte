@@ -164,9 +164,25 @@
       }
 
       const result = await response.json();
-      transcriptionResults = result.allResults || [];
-      consensusResult = result.consensus || null;
+      console.log('@phazzie-debug: API response received:', result);
+      
+      // API returns: { success: true, result: consensusResult }
+      // We need to extract the actual data from result.result
+      if (result.success && result.result) {
+        const consensusData = result.result;
+        console.log('@phazzie-debug: Consensus data:', consensusData);
+        
+        // Extract individual results and consensus
+        transcriptionResults = consensusData.individualResults || [];
+        consensusResult = consensusData || null;
+      } else {
+        console.log('@phazzie-debug: No results in API response');
+        transcriptionResults = [];
+        consensusResult = null;
+      }
 
+      console.log('@phazzie-debug: Final transcriptionResults:', transcriptionResults);
+      console.log('@phazzie-debug: Final consensusResult:', consensusResult);
       console.log('@phazzie-checkpoint-6: Transcription completed successfully');
 
     } catch (error) {
