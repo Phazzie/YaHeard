@@ -244,6 +244,14 @@
         <div class="w-4 h-4 bg-neon-purple rounded-full animate-ping shadow-neon-purple" style="animation-delay: 1s"></div>
       </div>
     </div>
+    
+    <!-- Debug Info (remove in production) -->
+    <div class="mb-4 p-4 bg-black/50 rounded text-sm text-white/70">
+      Debug: transcriptionResults.length = {transcriptionResults.length}, 
+      consensusResult = {consensusResult ? 'exists' : 'null'}, 
+      isProcessing = {isProcessingTranscription},
+      audioFile = {audioFileFromUser ? audioFileFromUser.name : 'none'}
+    </div>
 
     <!-- Error Display with Neon Styling -->
     {#if errorMessage}
@@ -258,7 +266,8 @@
       </div>
     {/if}
 
-    <!-- File Upload Section with Holographic Effects -->
+    <!-- File Upload Section with Holographic Effects - Only show when no results -->
+    {#if transcriptionResults.length === 0}
     <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
       <div class="flex items-center space-x-4 mb-8">
         <div class="text-6xl animate-bounce-slow">🎤</div>
@@ -290,9 +299,10 @@
         </div>
       {/if}
     </div>
+    {/if} <!-- End of upload section when no results -->
 
-    <!-- Processing Section with Cyber Styling -->
-    {#if audioFileFromUser && !isProcessingTranscription}
+    <!-- Processing Section with Cyber Styling - Only show when no results -->
+    {#if audioFileFromUser && !isProcessingTranscription && transcriptionResults.length === 0}
       <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
         <div class="text-center">
           <div class="text-8xl mb-6 animate-float">🚀</div>
@@ -313,8 +323,8 @@
       </div>
     {/if}
 
-    <!-- Progress Section with Dynamic Effects -->
-    {#if isProcessingTranscription}
+    <!-- Progress Section with Dynamic Effects - Only show when processing and no results yet -->
+    {#if isProcessingTranscription && transcriptionResults.length === 0}
       <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-left">
         <div class="text-center">
           <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
@@ -345,12 +355,21 @@
 
     <!-- Results Section with Spectacular Effects -->
     {#if transcriptionResults.length > 0}
-      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green animate-slide-in-right">
-        <div class="text-center mb-8">
-          <div class="text-8xl mb-4 animate-bounce-slow">🎯</div>
-          <h2 class="text-4xl font-bold text-glow-green">Transcription Complete!</h2>
-        </div>
+      <!-- Results Page Header -->
+      <div class="text-center mb-12 animate-fade-in-up">
+        <div class="text-9xl mb-6 animate-bounce-slow">🎯</div>
+        <h1 class="text-6xl font-bold text-glow-green mb-4">AI Transcription Complete!</h1>
+        <p class="text-2xl text-white/80 mb-2">Multi-AI Consensus Analysis</p>
+        <p class="text-lg text-neon-cyan">
+          📁 {audioFileFromUser?.name || 'Audio File'} 
+          {#if audioFileFromUser}
+            <span class="text-white/60">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
+          {/if}
+        </p>
+      </div>
 
+      <!-- Main Results Display -->
+      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green animate-slide-in-right">
         <ResultsDisplay results={transcriptionResults} consensus={consensusResult} />
         
         <!-- Action Buttons -->
@@ -360,6 +379,16 @@
             class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
           >
             🔄 Process Another File
+          </button>
+          
+          <button 
+            on:click={() => {
+              const text = consensusResult?.finalText || '';
+              navigator.clipboard.writeText(text);
+            }}
+            class="btn-cyber-secondary text-white font-bold py-4 px-8 rounded-xl text-lg"
+          >
+            📋 Copy Text
           </button>
         </div>
       </div>
@@ -485,5 +514,19 @@
       transform: translateY(-100vh) translateX(50px) rotate(360deg);
       opacity: 0;
     }
+  }
+  
+  /* Secondary button style for copy/download actions */
+  :global(.btn-cyber-secondary) {
+    background: linear-gradient(45deg, #4c1d95, #1e3a8a);
+    border: 2px solid #60a5fa;
+    transition: all 0.3s ease;
+  }
+  
+  :global(.btn-cyber-secondary:hover) {
+    background: linear-gradient(45deg, #5b21b6, #1d4ed8);
+    border-color: #93c5fd;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
   }
 </style>
