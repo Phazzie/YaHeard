@@ -138,7 +138,10 @@ export interface TranscriptionResult {
   /** The actual transcribed text - the most important field */
   text: string;
 
-  /** Confidence score from 0.0 (not confident) to 1.0 (very confident). Can be undefined if the service does not provide it. */
+  /**
+   * Confidence score from 0.0 (not confident) to 1.0 (very confident).
+   * This is optional as not all services provide a reliable confidence score.
+   */
   confidence?: number;
 
   /** How long the AI service took to process this file in milliseconds */
@@ -443,9 +446,8 @@ export interface ServiceQualityAssessment {
  *   id: crypto.randomUUID(),
  *   serviceName: 'Whisper',
  *   text: 'Hello, this is a transcription.',
- *   confidence: 0.95,
+ *   confidence: undefined, // Whisper doesn't provide confidence scores
  *   processingTimeMs: 1250,
- *   timestamp: new Date(),
  *   metadata: {
  *     model: 'whisper-1',
  *     language: 'en',
@@ -539,8 +541,7 @@ export function validateTranscriptionResult(result: unknown): result is Transcri
     typeof r.id === 'string' &&
     typeof r.serviceName === 'string' &&
     typeof r.text === 'string' &&
-    typeof r.confidence === 'number' &&
-    r.confidence >= 0 && r.confidence <= 1 &&
+    (typeof r.confidence === 'undefined' || (typeof r.confidence === 'number' && r.confidence >= 0 && r.confidence <= 1)) &&
     typeof r.processingTimeMs === 'number' &&
     r.processingTimeMs >= 0 &&
     r.timestamp instanceof Date

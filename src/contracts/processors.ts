@@ -224,6 +224,12 @@ export interface FailedService {
 export interface ComparisonEngine {
   /** Compare multiple transcription results and generate consensus */
   compareTranscriptions(results: TranscriptionResult[]): ConsensusResult;
+
+  /** Calculate confidence score for consensus text */
+  calculateConsensusConfidence(results: TranscriptionResult[], winningText: string): number;
+
+  /** Identify disagreements between services */
+  findDisagreements(results: TranscriptionResult[]): Disagreement[];
 }
 
 /**

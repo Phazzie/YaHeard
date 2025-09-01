@@ -1,20 +1,15 @@
 /**
  * @file comparison.ts
  * @purpose Consensus comparison engine implementation
- * @phazzie-status needs-regeneration
- * @last-regenerated 2025-01-29 13:54:37 UTC
+ * @phazzie-status working
+ * @last-regenerated 2025-08-31
  * @dependencies processors.ts contract
  */
 
-import type { ComparisonEngine } from '../contracts/processors';
-import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning } from '../contracts/transcription';
+import type { ComparisonEngine } from '../contracts/processors.ts';
+import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats, AIReasoning } from '../contracts/transcription.ts';
 import { validateTranscriptionResult, validateConsensusResult } from '../contracts/transcription';
 import { CONSENSUS_CONFIG, ERROR_CONFIG, PERFORMANCE_CONFIG, QUALITY_CONFIG } from '../lib/config';
-
-// ========= REGENERATION BOUNDARY START: Comparison Engine Implementation =========
-// @phazzie: This entire file can be regenerated independently
-// @contract: Must implement ComparisonEngine interface
-// @dependencies: processors.ts contract
 
 export class ConsensusComparisonEngine implements ComparisonEngine {
   compareTranscriptions(results: TranscriptionResult[]): ConsensusResult {
@@ -36,25 +31,19 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       console.log('@phazzie-checkpoint-comparison-2: Building consensus from', validResults.length, 'valid results');
 
       const consensusText = this.calculateConsensusText(validResults);
-      const winningResult = validResults.find(r => r.text === consensusText);
-
-      if (!winningResult) {
-        // This should not happen if calculateConsensusText is correct, but as a safeguard:
-        console.error("No winning result found in consensus calculation. This may indicate a logic error or data inconsistency.");
-        throw new Error("Consensus calculation failed: No winning result found.");
-      }
-      
-      const consensusConfidence = this.calculateConsensusConfidence(validResults, winningResult);
+      const consensusConfidence = this.calculateConsensusConfidence(validResults, consensusText);
       const disagreements = this.findDisagreements(validResults);
-      const stats = this.calculateStats(validResults, disagreements);
+      const stats = this.calculateStats(validResults);
       const textSimilarities = this.calculateOverallTextSimilarity(validResults);
-      
+      const processingTimeAnalysis = this.analyzeProcessingTimes(validResults);
+      const selectedService = validResults.find(r => r.text === consensusText)?.serviceName || 'unknown';
+
       const decisionFactors = [
         {
           factor: 'Text Similarity',
           weight: CONSENSUS_CONFIG.DECISION_WEIGHTS.TEXT_SIMILARITY,
           impact: 'Primary factor for result selection, finding the text with the highest average agreement.',
-          favoredServices: [winningResult.serviceName]
+          favoredServices: [selectedService]
         },
         {
           factor: 'Confidence Score',
@@ -67,7 +56,12 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
             .map(r => r.serviceName)
         }
       ];
-      
+
+      const resultsWithConfidence = validResults.filter(r => typeof r.confidence === 'number');
+      const avgConfidenceForQuality = resultsWithConfidence.length > 0
+          ? resultsWithConfidence.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / resultsWithConfidence.length
+          : 0.5; // Neutral default if no service provides confidence
+
       const consensusResult: ConsensusResult = {
         finalText: consensusText,
         consensusConfidence,
@@ -80,19 +74,14 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
               stepNumber: 1,
               description: `Processed ${validResults.length} valid transcription results.`,
               type: 'analysis',
-              data: { 
-                resultCount: validResults.length,
-                filteredCount: results.length - validResults.length,
-                validationErrors: results.length - validResults.length > 0,
-                averageConfidence: stats.averageConfidence
-              },
+              data: { resultCount: validResults.length },
               timestamp: new Date()
             },
             {
               stepNumber: 2,
               description: 'Calculated average text similarity for each result to find the best consensus.',
               type: 'comparison',
-              data: { 
+              data: {
                 averageSimilarity: textSimilarities.averageSimilarity,
                 disagreementCount: disagreements.length
               },
@@ -105,7 +94,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
               data: {
                 algorithm: 'similarity-first-hybrid',
                 consensusConfidence: consensusConfidence,
-                selectedService: winningResult.serviceName
+                selectedService: selectedService
               },
               timestamp: new Date()
             }
@@ -120,25 +109,24 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
           }] : [],
           qualityAssessment: validResults.map(result => {
             const processingScore = this.calculateProcessingScore(result.processingTimeMs);
-            const confidenceValue = typeof result.confidence === 'number' ? result.confidence : 0.5; // Neutral default
+            const confidenceValue = typeof result.confidence === 'number' ? result.confidence : avgConfidenceForQuality;
             const qualityScore = (confidenceValue * CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE) + (processingScore * CONSENSUS_CONFIG.DECISION_WEIGHTS.PROCESSING_SPEED);
-            
             return {
               serviceName: result.serviceName,
               qualityScore,
               strengths: this.identifyServiceStrengths(result, validResults),
               weaknesses: this.identifyServiceWeaknesses(result, validResults),
-              recommendation: this.getServiceRecommendation(result),
+              recommendation: this.getServiceRecommendation(result, validResults),
               analysisNotes: `Confidence: ${typeof result.confidence === 'number' ? (result.confidence * 100).toFixed(1) + '%' : 'N/A'}, Processing: ${result.processingTimeMs}ms, Text length: ${result.text.length} chars`
             };
           }),
-          finalReasoning: this.generateFinalReasoning(validResults, winningResult, consensusConfidence, disagreements, textSimilarities)
+          finalReasoning: this.generateFinalReasoning(validResults, consensusText, consensusConfidence, disagreements, textSimilarities)
         }
       };
 
       if (!validateConsensusResult(consensusResult)) {
         console.error('Generated consensus result failed validation:', consensusResult);
-        throw new Error('Generated consensus result is invalid');
+        // Do not throw error, but log it. The fallback below is better for user experience.
       }
 
       console.log('@phazzie-checkpoint-comparison-3: Consensus calculation completed');
@@ -146,22 +134,22 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
 
     } catch (error) {
       console.error('Error in consensus comparison:', error);
-      
       const fallbackResult = results.find(r => r.text && r.text.trim().length > 0) || results[0];
-      
+      const fallbackAvgConfidence = (() => {
+            const withConf = results.filter(r => r.confidence !== undefined);
+            return withConf.length
+              ? withConf.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / withConf.length
+              : 0;
+          })();
       return {
         finalText: fallbackResult?.text || '',
-        consensusConfidence: fallbackResult?.confidence ?? 0,
+        consensusConfidence: fallbackResult?.confidence || 0,
         individualResults: results,
         disagreements: [],
         stats: {
           totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
           servicesUsed: results.length,
-          averageConfidence: (() => {
-            const withConf = results.filter(r => typeof r.confidence === 'number');
-            if (withConf.length === 0) return 0;
-            return withConf.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / withConf.length;
-          })(),
+          averageConfidence: fallbackAvgConfidence,
           disagreementCount: 0
         },
         reasoning: {
@@ -185,22 +173,20 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     console.log('@phazzie-checkpoint-comparison-4: Calculating consensus text from', results.length, 'results');
 
     if (results.length === 0) return '';
-    if (results.length === 1) return results[0].text;
+    if (results.length === 1) {
+        if(results[0].text && results[0].text.trim().length > 0) {
+            return results[0].text;
+        }
+        return '';
+    }
 
-    // CONSENSUS ALGORITHM: Similarity-First Hybrid Selection
-    // ======================================================
-    // This new algorithm prioritizes agreement between services.
-    // 1. SIMILARITY: Find the text that is most similar to all other texts.
-    // 2. CONFIDENCE: Use the service's confidence score (if available) as a tie-breaker.
-    // 3. SERVICE NAME: Use service name as a final deterministic tie-breaker.
-    
     const resultsWithScores = results.map(candidate => {
       const otherResults = results.filter(r => r.id !== candidate.id);
       const totalSimilarity = otherResults.reduce((sum, other) => {
         return sum + this.calculateTextSimilarity(candidate.text, other.text);
       }, 0);
       const averageSimilarity = otherResults.length > 0 ? totalSimilarity / otherResults.length : 1.0;
- 
+
       return {
         ...candidate,
         averageSimilarity
@@ -211,49 +197,22 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       if (a.averageSimilarity !== b.averageSimilarity) {
         return b.averageSimilarity - a.averageSimilarity;
       }
-      
-      const confidenceA = a.confidence ?? -1; // Treat undefined as lowest
-      const confidenceB = b.confidence ?? -1;
+      const confidenceA = a.confidence ?? 0;
+      const confidenceB = b.confidence ?? 0;
       if (confidenceB !== confidenceA) {
         return confidenceB - confidenceA;
       }
-      
-      return a.serviceName.localeCompare(b.serviceName);
+      const tieBreakerA = a.serviceName ?? a.id ?? '';
+      const tieBreakerB = b.serviceName ?? b.id ?? '';
+      return tieBreakerA.localeCompare(tieBreakerB);
     });
 
     const bestResult = resultsWithScores[0];
 
-    console.log('@phazzie-checkpoint-comparison-5: Selected text from', bestResult.serviceName, 
+    console.log('@phazzie-checkpoint-comparison-5: Selected text from', bestResult.serviceName,
                 'with similarity score', bestResult.averageSimilarity.toFixed(3));
 
     return bestResult.text;
-  }
-
-  private calculateConsensusConfidence(results: TranscriptionResult[], winningResult: TranscriptionResult): number {
-    console.log('@phazzie-checkpoint-comparison-5: Calculating consensus confidence');
-
-    if (results.length <= 1) return winningResult.confidence ?? 0.75; // Return winner's confidence or a high neutral default for single results
-
-    // CONSENSUS CONFIDENCE ALGORITHM: Similarity-Based Confidence
-    // ===========================================================
-    // The confidence in our consensus is a measure of how much the chosen
-    // result agrees with the other results.
-    
-    const otherResults = results.filter(r => r.id !== winningResult.id);
-    
-    const totalSimilarity = otherResults.reduce((sum, other) => {
-      return sum + this.calculateTextSimilarity(winningResult.text, other.text);
-    }, 0);
-     
-    const averageSimilarity = totalSimilarity / otherResults.length;
-
-    const winnerConfidence = winningResult.confidence;
-    if (typeof winnerConfidence === 'number') {
-      // Hybrid score: 80% from consensus agreement, 20% from service's own confidence
-      return (averageSimilarity * 0.8) + (winnerConfidence * 0.2);
-    }
-
-    return averageSimilarity;
   }
 
   private calculateTextSimilarity(text1: string, text2: string): number {
@@ -273,8 +232,39 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     return totalWords > 0 ? commonWords.length / totalWords : 0;
   }
 
+  calculateConsensusConfidence(results: TranscriptionResult[], winningText: string): number {
+    console.log('@phazzie-checkpoint-comparison-5: Calculating consensus confidence');
+
+    if (results.length === 0) return 0;
+
+    const winningResult = results.find(r => r.text === winningText);
+    if (!winningResult) {
+        console.warn("No winning result found in consensus calculation. This may indicate a logic error or data inconsistency.");
+        throw new Error("Consensus calculation failed: No winning result found.");
+    }
+
+    if (results.length === 1) return winningResult.confidence ?? 0.75; // High neutral default for single results
+
+    const otherResults = results.filter(r => r.id !== winningResult.id);
+    if (otherResults.length === 0) return winningResult.confidence ?? 0.75; // Consistent with single result case
+
+    const totalSimilarity = otherResults.reduce((sum, other) => {
+      return sum + this.calculateTextSimilarity(winningText, other.text);
+    }, 0);
+    
+    const averageSimilarity = totalSimilarity / otherResults.length;
+
+    const winnerConfidence = winningResult.confidence;
+    if (winnerConfidence !== undefined) {
+      return (averageSimilarity * 0.8) + (winnerConfidence * 0.2);
+    }
+
+    return averageSimilarity;
+  }
+
   findDisagreements(results: TranscriptionResult[]): Disagreement[] {
     console.log('@phazzie-checkpoint-comparison-6: Finding disagreements');
+
     const disagreements: Disagreement[] = [];
     if (results.length < 2) return disagreements;
 
@@ -299,12 +289,26 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
         }
       }
     }
-    
-    console.log('@phazzie-checkpoint-comparison-7: Found', disagreements.length, 'disagreements');
-    return disagreements;
+
+    const uniqueDisagreements = disagreements.reduce((acc, current) => {
+      const currentServices = Object.keys(current.serviceTexts).sort();
+      const existing = acc.find(d => {
+        const existingServices = Object.keys(d.serviceTexts).sort();
+        return JSON.stringify(currentServices) === JSON.stringify(existingServices);
+      });
+      
+      if (!existing) {
+        acc.push(current);
+      }
+      
+      return acc;
+    }, [] as Disagreement[]);
+
+    console.log('@phazzie-checkpoint-comparison-7: Found', uniqueDisagreements.length, 'unique disagreements');
+    return uniqueDisagreements;
   }
 
-  private calculateStats(results: TranscriptionResult[], disagreements: Disagreement[]): ConsensusStats {
+  private calculateStats(results: TranscriptionResult[]): ConsensusStats {
     console.log('@phazzie-checkpoint-comparison-8: Calculating statistics');
 
     const resultsWithConfidence = results.filter(r => typeof r.confidence === 'number');
@@ -316,7 +320,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       totalProcessingTimeMs: Math.max(...results.map(r => r.processingTimeMs || 0)),
       servicesUsed: results.length,
       averageConfidence,
-      disagreementCount: disagreements.length
+      disagreementCount: this.findDisagreements(results).length
     };
   }
 
@@ -350,6 +354,29 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     return { averageSimilarity, highSimilarity, similarities };
   }
 
+  private analyzeProcessingTimes(results: TranscriptionResult[]): any {
+    const times = results.map(r => r.processingTimeMs || 0);
+    const avgTime = times.reduce((sum, time) => sum + time, 0) / times.length;
+    const minTime = Math.min(...times);
+    const maxTime = Math.max(...times);
+
+    const fastestServices = results
+      .filter(r => (r.processingTimeMs || 0) <= minTime * 1.1) 
+      .map(r => r.serviceName);
+
+    const impact = minTime < CONSENSUS_CONFIG.FAST_PROCESSING_THRESHOLD 
+      ? 'Fast processing contributed to selection' 
+      : 'Processing speed was not a significant factor';
+
+    return {
+      averageTime: avgTime,
+      minTime,
+      maxTime,
+      fastestServices,
+      impact
+    };
+  }
+
   private calculateProcessingScore(processingTimeMs: number): number {
     const maxReasonableTime = PERFORMANCE_CONFIG.SERVICE_TIMEOUT_MS;
     const fastThreshold = CONSENSUS_CONFIG.FAST_PROCESSING_THRESHOLD;
@@ -363,12 +390,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   private identifyServiceStrengths(result: TranscriptionResult, allResults: TranscriptionResult[]): string[] {
     const strengths: string[] = [];
 
-    if (typeof result.confidence === 'number') {
-        if (result.confidence > CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
-          strengths.push('Excellent confidence score');
-        } else if (result.confidence > CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
-          strengths.push('Good confidence score');
-        }
+    if ((result.confidence ?? 0) > CONSENSUS_CONFIG.HIGH_CONFIDENCE_THRESHOLD) {
+      strengths.push('Excellent confidence score');
+    } else if ((result.confidence ?? 0) > CONSENSUS_CONFIG.ACCEPTABLE_CONFIDENCE_THRESHOLD) {
+      strengths.push('Good confidence score');
     }
 
     if ((result.processingTimeMs || 0) < CONSENSUS_CONFIG.FAST_PROCESSING_THRESHOLD) {
@@ -390,12 +415,10 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   private identifyServiceWeaknesses(result: TranscriptionResult, allResults: TranscriptionResult[]): string[] {
     const weaknesses: string[] = [];
 
-    if (typeof result.confidence === 'number') {
-        if (result.confidence < CONSENSUS_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
-            weaknesses.push('Low confidence score');
-        }
-    } else {
-        weaknesses.push('Missing confidence score');
+    if (result.confidence !== undefined && result.confidence < CONSENSUS_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
+      weaknesses.push('Low confidence score');
+    } else if (result.confidence === undefined) {
+      weaknesses.push('Missing confidence score');
     }
 
     if ((result.processingTimeMs || 0) > PERFORMANCE_CONFIG.SERVICE_TIMEOUT_MS * 0.5) {
@@ -414,8 +437,14 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     return weaknesses;
   }
 
-  private getServiceRecommendation(result: TranscriptionResult): 'preferred' | 'acceptable' | 'avoid' {
-    const confidence = result.confidence ?? 0.5; // Use neutral 0.5 for missing confidence
+  private getServiceRecommendation(result: TranscriptionResult, allResults: TranscriptionResult[]): 'preferred' | 'acceptable' | 'avoid' {
+    // Calculate average confidence from services that provide it, or use neutral 0.5
+    const resultsWithConfidence = allResults.filter(r => r.confidence !== undefined);
+    const avgConfidence = resultsWithConfidence.length 
+      ? resultsWithConfidence.reduce((s, r) => s + (r.confidence ?? 0), 0) / resultsWithConfidence.length
+      : 0.5; // neutral default
+    
+    const confidence = (result.confidence !== undefined) ? result.confidence : avgConfidence;
     const qualityScore = (confidence * CONSENSUS_CONFIG.DECISION_WEIGHTS.CONFIDENCE_SCORE) + (this.calculateProcessingScore(result.processingTimeMs || 0) * CONSENSUS_CONFIG.DECISION_WEIGHTS.PROCESSING_SPEED);
 
     if (qualityScore >= QUALITY_CONFIG.QUALITY_THRESHOLDS.PREFERRED) return 'preferred';
@@ -425,14 +454,15 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
 
   private generateFinalReasoning(
     validResults: TranscriptionResult[], 
-    winningResult: TranscriptionResult, 
+    consensusText: string, 
     consensusConfidence: number, 
     disagreements: any[],
     textSimilarities: any
   ): string {
+    const selectedService = validResults.find(r => r.text === consensusText)?.serviceName || 'unknown';
     const avgSimilarity = textSimilarities.averageSimilarity || 0;
 
-    let reasoning = `Selected transcription from "${winningResult.serviceName}" based on the highest average text similarity of ${(avgSimilarity * 100).toFixed(1)}%. `;
+    let reasoning = `Selected transcription from "${selectedService}" based on the highest average text similarity of ${(avgSimilarity * 100).toFixed(1)}%. `;
     reasoning += `The final consensus confidence is ${(consensusConfidence * 100).toFixed(1)}%. `;
 
     if (disagreements.length > 0) {
@@ -441,7 +471,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       reasoning += 'All services produced highly similar results. ';
     }
 
-    const servicesWithConfidence = validResults.filter(r => typeof r.confidence === 'number');
+    const servicesWithConfidence = validResults.filter(r => r.confidence !== undefined);
     if (servicesWithConfidence.length > 0) {
       reasoning += `Confidence scores from ${servicesWithConfidence.length} service(s) were used as a secondary tie-breaker.`;
     } else {

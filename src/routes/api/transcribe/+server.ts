@@ -169,22 +169,27 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
     } catch (consensusError) {
       console.error('@phazzie-error: Consensus calculation failed:', consensusError);
       
-      // Fallback: Return the best individual result if consensus fails
-      const bestResult = successfulResults.reduce((best, current) => 
-        current.confidence > best.confidence ? current : best
+      // Fallback: Pick the fastest successful result for deterministic fallback
+      const bestResult = successfulResults.reduce((best, cur) =>
+        (cur.processingTimeMs || Infinity) < (best.processingTimeMs || Infinity) ? cur : best
       );
 
       return json({
         success: true,
         result: {
           finalText: bestResult.text,
-          consensusConfidence: bestResult.confidence,
+          consensusConfidence: bestResult.confidence ?? 0,
           individualResults: successfulResults,
           disagreements: [],
           stats: {
-            totalProcessingTimeMs: successfulResults.reduce((sum, r) => sum + (r.processingTimeMs || 0), 0),
+            totalProcessingTimeMs: Math.max(...successfulResults.map(r => r.processingTimeMs || 0)),
             servicesUsed: successfulResults.length,
-            averageConfidence: successfulResults.reduce((sum, r) => sum + r.confidence, 0) / successfulResults.length,
+            averageConfidence: (() => {
+              const withConf = successfulResults.filter(r => r.confidence !== undefined);
+              return withConf.length
+                ? withConf.reduce((s, r) => s + (r.confidence ?? 0), 0) / withConf.length
+                : 0;
+            })(),
             disagreementCount: 0
           },
           reasoning: {
@@ -192,13 +197,17 @@ export const POST: RequestHandler = async (event: { request: Request }) => {
               stepNumber: 1,
               description: `Fallback: Using best individual result from ${bestResult.serviceName} due to consensus engine error`,
               type: 'fallback' as const,
-              data: { selectedService: bestResult.serviceName, confidence: bestResult.confidence },
+              data: { 
+                selectedService: bestResult.serviceName, 
+                confidence: bestResult.confidence,
+                error: consensusError instanceof Error ? consensusError.message : String(consensusError)
+              },
               timestamp: new Date()
             }],
             decisionFactors: [],
             conflictResolution: [],
             qualityAssessment: [],
-            finalReasoning: `Consensus engine failed, selected ${bestResult.serviceName} with ${(bestResult.confidence * 100).toFixed(1)}% confidence as fallback.`
+            finalReasoning: `Consensus engine failed, selected ${bestResult.serviceName} with ${bestResult.confidence ? (bestResult.confidence * 100).toFixed(1) + '%' : 'unknown'} confidence as fallback.`
           }
         }
       });

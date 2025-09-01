@@ -34,7 +34,7 @@ let activeTab = 'overview';
   // @dependencies: Component props
 
   $: hasResults = results.length > 0;
-  $: resultsWithConfidence = results.filter(r => r.confidence !== undefined);
+  $: resultsWithConfidence = results.filter(r => typeof r.confidence === 'number');
   $: averageConfidence = resultsWithConfidence.length > 0
     ? resultsWithConfidence.reduce((sum, r) => sum + (r.confidence ?? 0), 0) / resultsWithConfidence.length
     : 0;
@@ -62,7 +62,7 @@ let activeTab = 'overview';
   }
 
   function getConfidenceColor(confidence: number | undefined): string {
-    if (confidence === undefined) return 'text-white/70';
+    if (confidence === undefined) return 'text-gray-500';
     if (confidence >= 0.9) return 'text-neon-green';
     if (confidence >= 0.7) return 'text-neon-yellow';
     return 'text-neon-pink';
