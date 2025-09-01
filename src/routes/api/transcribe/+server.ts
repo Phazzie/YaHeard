@@ -8,6 +8,9 @@ import { GeminiProcessor } from '../../../implementations/gemini';
 import { ConsensusComparisonEngine } from '../../../implementations/comparison';
 import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
 
+// Reusable comparison engine instance (stateless)
+const comparisonEngine = new ConsensusComparisonEngine();
+
 /**
  * Handles POST requests to the /api/transcribe endpoint.
  * This function orchestrates the multi-AI transcription and consensus process.
@@ -35,7 +38,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
     let consensusResult;
     try {
-        const comparisonEngine = new ConsensusComparisonEngine();
         consensusResult = comparisonEngine.compareTranscriptions(successfulResults);
     } catch (consensusError) {
         console.warn('Consensus engine failed, using fallback.', consensusError);
@@ -79,7 +81,13 @@ export const POST: RequestHandler = async ({ request }) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
     console.error(`Transcription API Error: ${errorMessage}`);
-    return json({ error: 'Failed to process audio file.', details: errorMessage }, { status: 500 });
+    
+    // Don't leak internal error details in production
+    const response = process.env.NODE_ENV === 'production'
+      ? { error: 'Failed to process audio file.' }
+      : { error: 'Failed to process audio file.', details: errorMessage };
+    
+    return json(response, { status: 500 });
   }
 };
 
