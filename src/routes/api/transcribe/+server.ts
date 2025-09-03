@@ -29,8 +29,16 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'No AI services are configured on the server.' }, { status: 500 });
     }
 
-    const results = await processWithAllAIs(processors, audioFile);
-    const successfulResults = results.filter((r): r is TranscriptionResult => r !== null);
+    const settledResults = await processWithAllAIs(processors, audioFile);
+    const successfulResults: TranscriptionResult[] = [];
+    settledResults.forEach(result => {
+      if (result.status === 'fulfilled') {
+        successfulResults.push(result.value);
+      } else {
+        // Optionally log the reason for failure for better diagnostics
+        console.error(`A service failed: ${result.reason}`);
+      }
+    });
 
     if (successfulResults.length === 0) {
       return json({ error: 'All AI services failed to process the audio file.' }, { status: 500 });
@@ -107,15 +115,15 @@ function initializeProcessors(): AudioProcessor[] {
 /**
  * Processes the audio file with all available AI services in parallel and with timeouts.
  */
-async function processWithAllAIs(processors: AudioProcessor[], file: File): Promise<(TranscriptionResult | null)[]> {
+async function processWithAllAIs(processors: AudioProcessor[], file: File): Promise<PromiseSettledResult<TranscriptionResult>[]> {
   const promises = processors.map(processor => processWithTimeout(processor, file));
-  return Promise.all(promises);
+  return Promise.allSettled(promises);
 }
 
 /**
  * Wraps the processor's `processFile` call with a timeout.
  */
-async function processWithTimeout(processor: AudioProcessor, file: File): Promise<TranscriptionResult | null> {
+async function processWithTimeout(processor: AudioProcessor, file: File): Promise<TranscriptionResult> {
   try {
     return await Promise.race([
       processor.processFile(file),
@@ -125,7 +133,7 @@ async function processWithTimeout(processor: AudioProcessor, file: File): Promis
     ]);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`${processor.serviceName} failed: ${errorMessage}`);
-    return null; // Return null for failed services
+    // Re-throw a more informative error
+    throw new Error(`${processor.serviceName} failed: ${errorMessage}`);
   }
 }

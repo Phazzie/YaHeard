@@ -1,7 +1,7 @@
 import type { AudioProcessor, GeminiConfig } from '../contracts/processors';
 import type { TranscriptionResult } from '../contracts/transcription';
 
-const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=';
+const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=';
 const TRANSCRIPTION_PROMPT = "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting.";
 
 /**
@@ -71,7 +71,7 @@ export class GeminiProcessor implements AudioProcessor {
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
-          model: this.config.options?.model || 'gemini-2.0-flash-exp',
+          model: this.config.options?.model || 'gemini-2.5-flash',
           apiVersion: 'v1beta',
           rawResponse: data
         }
