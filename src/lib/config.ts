@@ -69,7 +69,7 @@ export const PERFORMANCE_CONFIG = {
   MAX_FILE_SIZE_BYTES: 25 * 1024 * 1024, // 25MB - Vercel limit
   
   /** Timeout for individual AI service processing (milliseconds) */
-  SERVICE_TIMEOUT_MS: 30000, // 30 seconds
+  SERVICE_TIMEOUT_MS: 45000, // 45 seconds - optimized for AI service response times
   
   /** Maximum number of reasoning steps to store */
   MAX_REASONING_STEPS: 100,

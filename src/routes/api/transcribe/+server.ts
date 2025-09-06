@@ -1,5 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { PERFORMANCE_CONFIG } from '$lib/config';
+import { validateCSRFToken } from '$lib/csrf';
 import { WhisperProcessor } from '../../../implementations/whisper';
 import { AssemblyAIProcessor } from '../../../implementations/assembly';
 import { DeepgramProcessor } from '../../../implementations/deepgram';
@@ -113,6 +114,16 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const formData = await request.formData();
+    
+    // CSRF protection
+    const csrfToken = formData.get('csrfToken') as string;
+    if (!validateCSRFToken(csrfToken)) {
+      return json(
+        { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
+        { status: 403 }
+      );
+    }
+
     const audioFile = formData.get('audio') as File;
 
     if (!audioFile) {
