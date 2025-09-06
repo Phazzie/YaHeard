@@ -10,7 +10,9 @@
     "sourceMap": true,
     "strict": true,
     "module": "esnext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "target": "es2017",
+    "lib": ["es2017", "dom", "dom.iterable"]
   },
   "exclude": [
     "node_modules/**",

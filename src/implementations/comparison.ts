@@ -99,7 +99,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     const resultsWithScores = results.map(candidate => {
       const otherResults = results.filter(r => r.id !== candidate.id);
       const totalSimilarity = otherResults.reduce((sum, other) => {
-        return sum + this.calculateLevenshteinSimilarity(candidate.text, other.text);
+        return sum + this.calculateEnhancedSimilarity(candidate.text, other.text);
       }, 0);
       const averageSimilarity = otherResults.length > 0 ? totalSimilarity / otherResults.length : 1.0;
 
@@ -136,7 +136,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     const otherResults = results.filter(r => r.text !== winningText);
 
     const averageSimilarity = otherResults.reduce((sum, other) => {
-      return sum + this.calculateLevenshteinSimilarity(winningText, other.text);
+      return sum + this.calculateEnhancedSimilarity(winningText, other.text);
     }, 0) / (otherResults.length || 1);
 
     const winnerConfidence = winningResult.confidence;
@@ -161,7 +161,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
           [r.serviceName]: r.text,
           'consensus': winningText
         },
-        severity: 1 - this.calculateLevenshteinSimilarity(r.text, winningText)
+        severity: 1 - this.calculateEnhancedSimilarity(r.text, winningText)
       }))
       .filter(d => d.severity > (1 - CONSENSUS_CONFIG.AGREEMENT_THRESHOLD));
   }
@@ -238,6 +238,44 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     if (maxLength === 0) return 1;
     const distance = this.levenshteinDistance(a.toLowerCase(), b.toLowerCase());
     return (maxLength - distance) / maxLength;
+  }
+
+  /**
+   * Calculates Jaccard similarity using word-level overlap detection.
+   * This provides superior accuracy for transcription consensus by comparing
+   * word sets rather than character sequences.
+   */
+  private calculateJaccardSimilarity(a: string, b: string): number {
+    if (!a || !b) return 0;
+    if (a === b) return 1;
+
+    // Tokenize into words and normalize
+    const wordsA = new Set(a.toLowerCase().split(/\s+/).filter(word => word.length > 0));
+    const wordsB = new Set(b.toLowerCase().split(/\s+/).filter(word => word.length > 0));
+
+    if (wordsA.size === 0 && wordsB.size === 0) return 1;
+    if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+    // Calculate intersection
+    const intersection = new Set([...wordsA].filter(word => wordsB.has(word)));
+    
+    // Calculate union
+    const union = new Set([...wordsA, ...wordsB]);
+
+    // Jaccard similarity = |intersection| / |union|
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Enhanced similarity calculation combining Levenshtein and Jaccard similarities.
+   * Uses weighted approach: 60% Jaccard (word-level) + 40% Levenshtein (character-level)
+   */
+  private calculateEnhancedSimilarity(a: string, b: string): number {
+    const jaccardSim = this.calculateJaccardSimilarity(a, b);
+    const levenshteinSim = this.calculateLevenshteinSimilarity(a, b);
+    
+    // Weight: 60% word-level similarity, 40% character-level similarity
+    return (jaccardSim * 0.6) + (levenshteinSim * 0.4);
   }
 
   private levenshteinDistance(a: string, b: string): number {
