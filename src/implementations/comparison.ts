@@ -30,6 +30,9 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       throw new Error('No valid transcription results provided for comparison.');
     }
 
+    // Per-run similarity cache to avoid recomputing pairwise distances
+    const simCache = new Map<string, number>();
+
     // If there's only one result, it's the consensus by default.
     if (results.length === 1) {
       return this.createSingleResultConsensus(results[0]);
@@ -40,15 +43,15 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       throw new Error('All transcription results were empty or invalid.');
     }
 
-    const consensusText = this.calculateConsensusText(validResults);
+    const consensusText = this.calculateConsensusText(validResults, simCache);
     const winningResult = validResults.find(r => r.text === consensusText);
     if (!winningResult) {
       // This should theoretically not happen if calculateConsensusText works correctly
       throw new Error('Consensus calculation failed: No winning result found.');
     }
 
-    const consensusConfidence = this.calculateConsensusConfidence(validResults, consensusText);
-    const disagreements = this.findDisagreements(validResults, consensusText);
+    const consensusConfidence = this.calculateConsensusConfidence(validResults, consensusText, simCache);
+    const disagreements = this.findDisagreements(validResults, consensusText, simCache);
     const stats = this.calculateStats(validResults, disagreements);
     const reasoning = this.buildReasoning(validResults, winningResult, consensusText, disagreements);
 
@@ -62,8 +65,8 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     };
 
     if (!validateConsensusResult(consensusResult)) {
-        console.warn("Consensus result failed validation", consensusResult);
-        throw new Error("Generated an invalid ConsensusResult object.");
+      console.warn("Consensus result failed validation", consensusResult);
+      throw new Error("Generated an invalid ConsensusResult object.");
     }
 
     return consensusResult;
@@ -73,7 +76,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     const stats: ConsensusStats = {
       totalProcessingTimeMs: result.processingTimeMs,
       servicesUsed: 1,
-      averageConfidence: result.confidence ?? 0,
+      averageConfidence: typeof result.confidence === 'number' ? result.confidence : 0,
       disagreementCount: 0,
     };
 
@@ -82,9 +85,12 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
       steps: [{ stepNumber: 1, description: 'Only one valid result was provided, so it was chosen as the consensus.' }],
     };
 
+    // Use the same weighting logic as multi-result flow for consistency
+    const consensusConfidence = this.calculateConsensusConfidence([result], result.text, new Map());
+
     return {
       finalText: result.text,
-      consensusConfidence: result.confidence ?? 0.75, // Default confidence for a single result
+      consensusConfidence,
       individualResults: [result],
       disagreements: [],
       stats,
@@ -95,11 +101,11 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   /**
    * Calculates the consensus text using a similarity-first approach.
    */
-  private calculateConsensusText(results: TranscriptionResult[]): string {
+  private calculateConsensusText(results: TranscriptionResult[], simCache: Map<string, number>): string {
     const resultsWithScores = results.map(candidate => {
       const otherResults = results.filter(r => r.id !== candidate.id);
       const totalSimilarity = otherResults.reduce((sum, other) => {
-        return sum + this.calculateLevenshteinSimilarity(candidate.text, other.text);
+        return sum + this.calculateLevenshteinSimilarity(candidate.text, other.text, simCache);
       }, 0);
       const averageSimilarity = otherResults.length > 0 ? totalSimilarity / otherResults.length : 1.0;
 
@@ -131,13 +137,15 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   /**
    * Calculates a weighted confidence score for the consensus text.
    */
-  private calculateConsensusConfidence(results: TranscriptionResult[], winningText: string): number {
+  private calculateConsensusConfidence(results: TranscriptionResult[], winningText: string, simCache: Map<string, number>): number {
     const winningResult = results.find(r => r.text === winningText)!;
     const otherResults = results.filter(r => r.text !== winningText);
 
-    const averageSimilarity = otherResults.reduce((sum, other) => {
-      return sum + this.calculateLevenshteinSimilarity(winningText, other.text);
-    }, 0) / (otherResults.length || 1);
+    const averageSimilarity = otherResults.length === 0
+      ? 1
+      : otherResults.reduce((sum, other) => {
+        return sum + this.calculateLevenshteinSimilarity(winningText, other.text, simCache);
+      }, 0) / otherResults.length;
 
     const winnerConfidence = winningResult.confidence;
 
@@ -152,7 +160,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     return Math.min(1.0, similarityComponent + confidenceComponent + speedComponent);
   }
 
-  private findDisagreements(results: TranscriptionResult[], winningText: string): Disagreement[] {
+  private findDisagreements(results: TranscriptionResult[], winningText: string, simCache: Map<string, number>): Disagreement[] {
     return results
       .filter(r => r.text !== winningText)
       .map(r => ({
@@ -161,7 +169,7 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
           [r.serviceName]: r.text,
           'consensus': winningText
         },
-        severity: 1 - this.calculateLevenshteinSimilarity(r.text, winningText)
+        severity: 1 - this.calculateLevenshteinSimilarity(r.text, winningText, simCache)
       }))
       .filter(d => d.severity > (1 - CONSENSUS_CONFIG.AGREEMENT_THRESHOLD));
   }
@@ -180,30 +188,30 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
   private buildReasoning(results: TranscriptionResult[], winner: TranscriptionResult, consensusText: string, disagreements: Disagreement[]): AIReasoning {
     const steps: ReasoningStep[] = [];
     steps.push({
-        stepNumber: 1,
-        description: `Started consensus process with ${results.length} valid transcription results.`,
-        data: { serviceNames: results.map(r => r.serviceName) }
+      stepNumber: 1,
+      description: `Started consensus process with ${results.length} valid transcription results.`,
+      data: { serviceNames: results.map(r => r.serviceName) }
     });
     steps.push({
-        stepNumber: 2,
-        description: "Calculated pairwise Levenshtein similarity for all results to find the best candidate.",
+      stepNumber: 2,
+      description: "Calculated pairwise Levenshtein similarity for all results to find the best candidate.",
     });
     steps.push({
-        stepNumber: 3,
-        description: `Selected text from "${winner.serviceName}" as the winner based on the highest average similarity score.`,
-        data: { winner: winner.serviceName, consensusText }
+      stepNumber: 3,
+      description: `Selected text from "${winner.serviceName}" as the winner based on the highest average similarity score.`,
+      data: { winner: winner.serviceName, consensusText }
     });
     steps.push({
-        stepNumber: 4,
-        description: `Calculated final weighted consensus confidence score.`,
-        data: { weights: CONSENSUS_CONFIG.DECISION_WEIGHTS }
+      stepNumber: 4,
+      description: `Calculated final weighted consensus confidence score.`,
+      data: { weights: CONSENSUS_CONFIG.DECISION_WEIGHTS }
     });
     if (disagreements.length > 0) {
-        steps.push({
-            stepNumber: 5,
-            description: `Identified ${disagreements.length} disagreements with the consensus text.`,
-            data: { disagreementCount: disagreements.length }
-        });
+      steps.push({
+        stepNumber: 5,
+        description: `Identified ${disagreements.length} disagreements with the consensus text.`,
+        data: { disagreementCount: disagreements.length }
+      });
     }
 
     const finalReasoning = `Selected text from "${winner.serviceName}" due to its high average similarity to other transcriptions. The final confidence score was weighted based on text similarity, the winner's own confidence, and processing speed.`;
@@ -232,12 +240,22 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
     return score;
   }
 
-  private calculateLevenshteinSimilarity(a: string, b: string): number {
+  private calculateLevenshteinSimilarity(a: string, b: string, simCache: Map<string, number>): number {
     if (!a || !b) return 0;
-    const maxLength = Math.max(a.length, b.length);
-    if (maxLength === 0) return 1;
-    const distance = this.levenshteinDistance(a.toLowerCase(), b.toLowerCase());
-    return (maxLength - distance) / maxLength;
+    const aL = a.toLowerCase();
+    const bL = b.toLowerCase();
+    const k = aL <= bL ? aL + '|' + bL : bL + '|' + aL;
+    const cached = simCache.get(k);
+    if (cached !== undefined) return cached;
+    const maxLength = Math.max(aL.length, bL.length);
+    if (maxLength === 0) {
+      simCache.set(k, 1);
+      return 1;
+    }
+    const distance = this.levenshteinDistance(aL, bL);
+    const similarity = (maxLength - distance) / maxLength;
+    simCache.set(k, similarity);
+    return similarity;
   }
 
   private levenshteinDistance(a: string, b: string): number {

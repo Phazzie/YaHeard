@@ -1,182 +1,193 @@
-# Multi-AI Transcription Consensus Engine
+# YaHeard Multi-AI Transcription Engine
 
-🚀 **@Phazzie Contract-Driven Development Mode ACTIVATED!**
+🎯 **A SvelteKit application that processes audio files through multiple AI transcription services and generates consensus transcriptions for improved accuracy.**
 
-A SvelteKit application that processes audio files through multiple AI transcription services (Whisper, AssemblyAI, Deepgram) and generates consensus transcriptions for improved accuracy.
-
-## 🏗️ @Phazzie Architecture
-
-This project follows the **@Phazzie Contract-Driven Development** methodology:
-
-### Core Principles
-- **Contracts First**: Define interfaces before implementations
-- **Regeneration Seams**: Clear boundaries for independent regeneration
-- **Verbose Naming**: Self-documenting variable names
-- **Error Boundaries**: Comprehensive error handling with regeneration hints
-
-### Project Structure
-```
-src/
-├── contracts/           # 📋 Interfaces that DON'T change
-│   ├── transcription.ts # Core data structures
-│   ├── processors.ts    # AI processor interfaces
-│   └── file-upload.ts   # File upload contracts
-│
-├── implementations/     # 🔄 Can be regenerated freely
-│   ├── whisper.ts       # Whisper AI implementation
-│   ├── assembly.ts      # AssemblyAI implementation
-│   └── comparison.ts    # Consensus engine
-│
-├── routes/
-│   ├── +page.svelte     # Main UI with seam comments
-│   ├── +page.server.ts  # Form handling
-│   └── api/transcribe/+server.ts # API endpoint
-│
-└── lib/components/      # Reusable UI components
-    ├── FileUpload.svelte
-    ├── ResultsDisplay.svelte
-    └── ProgressBar.svelte
-```
+⚠️ **Current Status**: Core functional with known issues. See [PROJECT_STATUS.md](PROJECT_STATUS.md) for details.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
+- Node.js 20+
+- At least one AI service API key (required for functionality)
 
-### Installation
+### Installation & Setup
 ```bash
+# Clone and install
+git clone https://github.com/Phazzie/YaHeard.git
+cd YaHeard
 npm install
+
+# Configure API keys (REQUIRED)
+cp .env.example .env
+# Edit .env and add at least one API key
 ```
 
 ### Environment Configuration
 
-**⚠️ IMPORTANT**: At least one API key is required for the application to function. The server will return a 500 error if no API keys are configured.
+**⚠️ CRITICAL**: At least one API key is required. The application will return errors if none are configured.
 
-1. **Copy the environment template:**
+| Service | Get API Key From | Cost | Notes |
+|---------|------------------|------|--------|
+| **OpenAI Whisper** | [platform.openai.com](https://platform.openai.com/api-keys) | $0.006/min | General-purpose, reliable |
+| **AssemblyAI** | [assemblyai.com](https://www.assemblyai.com/dashboard/signup) | $0.025/min | Free tier available |
+| **Deepgram** | [console.deepgram.com](https://console.deepgram.com/) | Variable | Fast processing |
+| **ElevenLabs** | [elevenlabs.io](https://elevenlabs.io/app/profile) | Variable | Premium quality |
+| **Google Gemini** | [aistudio.google.com](https://aistudio.google.com/app/apikey) | $0.0018/min | Multimodal AI |
+
+### Development & Deployment
 ```bash
-cp .env.example .env
-```
-
-2. **Add your API keys to `.env`:**
-```bash
-# At least ONE of these is required:
-OPENAI_API_KEY=your-openai-key-here
-ASSEMBLYAI_API_KEY=your-assemblyai-key-here  
-DEEPGRAM_API_KEY=your-deepgram-key-here
-ELEVENLABS_API_KEY=your-elevenlabs-key-here
-GEMINI_API_KEY=your-gemini-key-here
-```
-
-#### API Key Sources:
-
-| Service | Get API Key From | Status | Notes |
-|---------|------------------|--------|--------|
-| **OpenAI Whisper** | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Optional | High-quality transcription |
-| **AssemblyAI** | [assemblyai.com/dashboard](https://www.assemblyai.com/dashboard/signup) | Optional | Free tier available |
-| **Deepgram** | [console.deepgram.com](https://console.deepgram.com/) | Optional | Fast and accurate |
-| **ElevenLabs** | [elevenlabs.io/app/profile](https://elevenlabs.io/app/profile) | Optional | Speech-to-text capabilities |
-| **Google Gemini** | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) | Optional | Multimodal AI |
-
-**💡 Tip**: The more API keys you provide, the better the consensus results will be!
-
-### Development
-```bash
+# Development
 npm run dev
-```
 
-### Build for Production
-```bash
+# Production build
 npm run build
 npm run preview
+
+# Deploy to Vercel (zero-config)
+npm run build  # Then connect to Vercel
 ```
 
-## 🔧 @Phazzie Regeneration Guide
+## 🏗️ Architecture Overview
 
-### When Something Breaks
-1. **Check Console Logs**: Look for `@phazzie-error` messages
-2. **Identify the Seam**: Find the regeneration boundary comment
-3. **Regenerate Section**: Replace only the broken section
-4. **Test Independently**: Each section can be tested separately
+### Core Design Principle
+**Contract-First Development**: Interfaces defined before implementations, enabling independent component development and testing.
 
-### Regeneration Boundaries
-Each major function is wrapped with:
+### Project Structure
+```
+src/
+├── contracts/           # 📋 Interface definitions (stable)
+│   ├── transcription.ts # Core data structures  
+│   ├── processors.ts    # AI service interfaces
+│   └── file-upload.ts   # Upload validation contracts
+│
+├── implementations/     # 🔄 AI service implementations
+│   ├── whisper.ts       # OpenAI Whisper
+│   ├── assembly.ts      # AssemblyAI  
+│   ├── deepgram.ts      # Deepgram
+│   ├── elevenlabs.ts    # ElevenLabs
+│   ├── gemini.ts        # Google Gemini
+│   └── comparison.ts    # Consensus engine
+│
+├── routes/              # 🌐 SvelteKit routes
+│   ├── +page.svelte     # Main UI
+│   └── api/transcribe/  # Processing endpoint
+│
+└── lib/                 # 🛠️ Shared utilities
+    ├── config.ts        # Centralized configuration
+    ├── ui-utils.ts      # UI helper functions
+    └── components/      # Reusable UI components
+```
+
+## 🧮 How the Consensus Algorithm Works
+
+### Similarity-First Approach
+1. **Text Similarity Analysis**: Uses Levenshtein distance to compare transcriptions
+2. **Weighted Scoring**: 70% text similarity + 20% confidence + 10% processing speed  
+3. **Winner Selection**: Highest combined score becomes consensus result
+4. **Quality Assessment**: Individual service performance analysis
+
+### Example Consensus Process
+```
+Input: 3 AI services process "Hello world" audio
+
+Service A: "Hello world" (confidence: 0.95, 2.1s)
+Service B: "Hello word"  (confidence: 0.87, 1.8s)  
+Service C: "Hello world" (confidence: 0.91, 3.2s)
+
+Algorithm:
+1. Calculate similarities: A vs B=0.91, A vs C=1.0, B vs C=0.91
+2. Average similarities: A=0.955, B=0.91, C=0.955  
+3. Apply weights: A=0.955×0.7 + 0.95×0.2 + 0.9×0.1 = 0.948
+4. Result: Service A wins → "Hello world"
+```
+
+## 🛠️ API Usage
+
+### Basic Transcription Request
 ```javascript
-// ========= REGENERATION BOUNDARY START: [Section Name] ==========
-// @phazzie: This section can be regenerated independently
-// @contract: Must [describe contract]
-// @dependencies: [what must work before this]
+const formData = new FormData();
+formData.append('audio', audioFile);
 
-// [CODE HERE]
+const response = await fetch('/api/transcribe', {
+  method: 'POST',
+  body: formData
+});
 
-// ========= REGENERATION BOUNDARY END: [Section Name] ==========
+const result = await response.json();
+console.log(result.finalText);        // Consensus transcription
+console.log(result.consensusConfidence); // Quality score (0-1)
+console.log(result.individualResults);   // All AI results
 ```
 
-### Files That Can Be Regenerated Independently
-- `src/implementations/whisper.ts` - Complete Whisper integration
-- `src/implementations/assembly.ts` - Complete AssemblyAI integration
-- `src/implementations/comparison.ts` - Consensus algorithm
-- `src/routes/+page.svelte` sections - UI components
-- `src/routes/api/transcribe/+server.ts` sections - API logic
-
-## 📋 Contracts Overview
-
-### File Upload Contract
+### Response Format
 ```typescript
-interface FileUploadContract {
-  accept: string[]        // ['.mp3', '.wav', '.m4a', '.webm']
-  maxSize: number         // 10MB
-  onUpload: (file: File) => Promise<UploadResult>
+{
+  finalText: string;                    // Consensus transcription
+  consensusConfidence: number;          // Quality score (0-1)
+  individualResults: TranscriptionResult[]; // Individual AI results
+  stats: {
+    totalProcessingTimeMs: number;
+    servicesUsed: number;
+    averageConfidence: number;
+    disagreementCount: number;
+  };
+  reasoning: {                          // Algorithm explanation
+    finalReasoning: string;
+    steps: ReasoningStep[];
+  };
 }
 ```
 
-### AI Processor Contract
-```typescript
-interface AudioProcessor {
-  serviceName: string
-  isAvailable(): boolean
-  processFile(file: File): Promise<TranscriptionResult>
-  getCostPerMinute(): number
-}
-```
+## 🧪 Testing & Development
 
-## 🎯 Success Criteria
-- [x] Project runs with `npm run dev`
-- [x] File upload accepts audio files
-- [x] Clear seam points marked with `@phazzie-regeneration-point`
-- [x] Contracts defined separately from implementation
-- [x] Console logs show `@phazzie-checkpoint-X` messages
-- [x] Each major function can be regenerated independently
-
-## 🔄 Current Status
-- **Contracts**: ✅ Defined and stable
-- **UI Components**: ✅ Working with Tailwind CSS
-- **File Upload**: ✅ Drag-and-drop with validation
-- **API Structure**: ✅ Ready for AI integrations
-- **AI Implementations**: 🔄 Placeholder (needs real API keys)
-
-## 🚀 Deployment
-Ready for Vercel deployment with zero configuration:
-
+### Manual Testing
 ```bash
+# Test build process
 npm run build
-# Deploy to Vercel
+
+# Test with sample audio file
+# Upload .mp3/.wav file via UI at http://localhost:5173
 ```
 
-## 📝 Adding New AI Services
-1. Create new contract in `src/contracts/processors.ts`
-2. Implement in `src/implementations/[service].ts`
-3. Add to API endpoint processing pipeline
-4. Update UI to show new service
+### Smoke Test
+- Ensure at least one API key is set in .env and server restarted
+- Start dev server: npm run dev
+- Upload a small .wav file via the UI
+- Observe /api/transcribe response in the Network tab
+- Expected: finalText is non-empty; consensusConfidence is 0–1; individualResults length ≥ 1
 
-## 🐛 Troubleshooting
-- **File too large**: Check `MAX_FILE_SIZE_BYTES` in contracts
-- **Unsupported format**: Check `SUPPORTED_AUDIO_FORMATS`
-- **API errors**: Look for `@phazzie-error` in console
-- **Regeneration needed**: Follow the boundary comments
+### Code Quality
+- **TypeScript**: Strict mode enabled with comprehensive type checking
+- **Build Status**: ✅ Successful compilation with minor warnings
+- **Architecture**: Contract-driven development with clear interfaces
+
+## Known Issues
+
+### Critical Bugs (Fix Before Production)
+- Confidence inconsistency: different undefined handling across components
+- Performance issue: quadratic similarity calculations
+
+See [LESSONS_LEARNED.md](LESSONS_LEARNED.md) for detailed analysis and [PROJECT_STATUS.md](PROJECT_STATUS.md) for current status.
+
+## 📚 Documentation
+
+- **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current implementation status and bug tracking
+- **[LESSONS_LEARNED.md](LESSONS_LEARNED.md)** - Architectural insights and development lessons  
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed development history and changes
+
+## 🤝 Contributing
+
+1. Review [LESSONS_LEARNED.md](LESSONS_LEARNED.md) for architectural guidelines
+2. Check [PROJECT_STATUS.md](PROJECT_STATUS.md) for current priorities
+3. Focus on critical bug fixes before adding new features
+4. Maintain contract-driven development patterns
+
+## 📄 License
+
+MIT License - see LICENSE file for details
 
 ---
 
-**Built with ❤️ for @Phazzie's regeneration-over-debug workflow**
-
-*Time: 2025-01-29 | Status: Ready for AI API Integration*
+**Built with**: SvelteKit + TypeScript + Tailwind CSS  
+**Architecture**: Contract-driven development for maintainable AI integrations  
+**Status**: Core functional, production-ready after bug fixes

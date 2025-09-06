@@ -9,7 +9,7 @@ const TRANSCRIPTION_PROMPT = "Please transcribe this audio file. Provide only th
  */
 export class GeminiProcessor implements AudioProcessor {
   readonly serviceName = 'Google Gemini';
-  private config: GeminiConfig;
+  private readonly config: GeminiConfig;
 
   constructor(config: GeminiConfig = {}) {
     this.config = config;
@@ -28,40 +28,11 @@ export class GeminiProcessor implements AudioProcessor {
       const base64Audio = await this.arrayBufferToBase64(file);
       const startTime = Date.now();
 
-      const requestBody = {
-        contents: [{
-          parts: [
-            { text: TRANSCRIPTION_PROMPT },
-            { inlineData: { mimeType: file.type || 'audio/wav', data: base64Audio } }
-          ]
-        }],
-        generationConfig: {
-          temperature: this.config.options?.temperature || 0.1,
-          topK: this.config.options?.topK || 1,
-          topP: this.config.options?.topP || 1.0,
-          maxOutputTokens: this.config.options?.maxOutputTokens || 2048,
-        }
-      };
+      const requestBody = this.buildRequestBody(file, base64Audio);
+      const data = await this.callGeminiApi(requestBody, this.config.apiKey);
 
-      const response = await fetch(`${API_ENDPOINT_BASE}${this.config.apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
-      }
-
-      const data = await response.json();
       const processingTime = Date.now() - startTime;
-      const candidate = data.candidates?.[0];
-      const transcribedText = candidate?.content?.parts?.[0]?.text || '';
-
-      if (!candidate) {
-        throw new Error('Gemini returned no candidates in response.');
-      }
+      const transcribedText = this.extractTranscribedText(data);
 
       return {
         id: `gemini-${Date.now()}`,
@@ -83,6 +54,47 @@ export class GeminiProcessor implements AudioProcessor {
     }
   }
 
+  private buildRequestBody(file: File, base64Audio: string) {
+    return {
+      contents: [{
+        parts: [
+          { text: TRANSCRIPTION_PROMPT },
+          { inlineData: { mimeType: file.type || 'audio/wav', data: base64Audio } }
+        ]
+      }],
+      generationConfig: {
+        temperature: this.config.options?.temperature || 0.1,
+        topK: this.config.options?.topK || 1,
+        topP: this.config.options?.topP || 1.0,
+        maxOutputTokens: this.config.options?.maxOutputTokens || 2048,
+      }
+    } as const;
+  }
+
+  private async callGeminiApi(requestBody: unknown, apiKey: string): Promise<any> {
+    const response = await fetch(`${API_ENDPOINT_BASE}${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+    }
+
+    return response.json();
+  }
+
+  private extractTranscribedText(data: any): string {
+    const candidate = data?.candidates?.[0];
+    if (!candidate) {
+      throw new Error('Gemini returned no candidates in response.');
+    }
+    const text = candidate?.content?.parts?.[0]?.text || '';
+    return text;
+  }
+
   private async arrayBufferToBase64(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer();
     // Server-side base64 conversion using Buffer (Node.js)
@@ -96,10 +108,7 @@ export class GeminiProcessor implements AudioProcessor {
   }
 
   getSupportedFormats(): string[] {
-    // Based on Gemini API documentation for multimodal input.
-    return [
-      'audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a',
-      'audio/ogg', 'audio/webm', 'audio/flac'
-    ];
+    // Return file extensions to align with app contracts and UI validation.
+    return ['.wav', '.mp3', '.m4a', '.ogg', '.webm', '.flac'];
   }
 }

@@ -712,33 +712,6 @@
     }
   }
 
-  @keyframes bounceIn {
-    0%, 20%, 40%, 60%, 80% {
-      animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
-    }
-    0% {
-      opacity: 0;
-      transform: scale3d(.3, .3, .3);
-    }
-    20% {
-      transform: scale3d(1.1, 1.1, 1.1);
-    }
-    40% {
-      transform: scale3d(.9, .9, .9);
-    }
-    60% {
-      opacity: 1;
-      transform: scale3d(1.03, 1.03, 1.03);
-    }
-    80% {
-      transform: scale3d(.97, .97, .97);
-    }
-    100% {
-      opacity: 1;
-      transform: scale3d(1, 1, 1);
-    }
-  }
-
   .animate-fade-in-up {
     animation: fadeInUp 0.6s ease-out;
   }
@@ -753,10 +726,6 @@
 
   .animate-slide-in-up {
     animation: slideInUp 0.6s ease-out;
-  }
-
-  .animate-bounce-in {
-    animation: bounceIn 1s ease-out;
   }
 
   .animate-glow-pulse {
@@ -792,10 +761,6 @@
   @keyframes bounce-slow {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-5px); }
-  }
-
-  .animate-pulse-slow {
-    animation: pulse 3s ease-in-out infinite;
   }
 
   .animate-neon-flicker {
