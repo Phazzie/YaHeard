@@ -28,33 +28,22 @@ YaHeard was designed as a multi-AI transcription consensus engine that processes
 - **Code Proof:** Fallback logic in `/api/transcribe/+server.ts` lines 39-67
 - **Benefit:** System provides results even if some AI services are down
 
-### ❌ Critical Architectural Flaws
+### ❌ Architectural Issues and Resolutions
 
-#### 1. **CRITICAL FLAW:** Gemini Service Returns Wrong Format Types
-**Problem:** Gemini processor returns MIME types instead of file extensions in `getSupportedFormats()`.
-- **Evidence:** `src/implementations/gemini.ts:84-90` returns `['audio/wav', 'audio/mpeg']` 
-- **Should Return:** `['.wav', '.mp3']` to match contract expectations
-- **Impact:** Frontend validation will fail for Gemini-supported formats
-- **Fix Required:** Change return values to file extensions with dots
+#### 1. RESOLVED: Gemini service returned MIME types instead of extensions
+- Problem: `getSupportedFormats()` returned MIME types (e.g., `audio/wav`) instead of extensions (e.g., `.wav`)
+- Resolution: Fixed in src/implementations/gemini.ts to return extensions
+- Impact: Frontend validation now aligns with processor contract
 
-#### 2. **MAJOR FLAW:** Inconsistent Confidence Handling Creates UI Bugs
-**Problem:** Different default values for undefined confidence across components.
-- **Evidence:** 
-  - `comparison.ts:260` uses `?? 0.75` for single results
-  - `comparison.ts:441` uses `?? 0.7` for recommendations  
-  - `ResultsDisplay.svelte:74` treats undefined as N/A
-- **Impact:** Users see inconsistent confidence displays and scoring
-- **Fix Required:** Standardize undefined confidence handling across all components
+#### 2. Inconsistent confidence handling creates UI variance
+- Problem: Different defaults for undefined confidence across components
+- Status: Partially normalized in engine; needs end-to-end standardization across API fallback and UI
+- Impact: Users may see inconsistent confidence displays and scoring
 
-#### 3. **DESIGN FLAW:** Over-Engineering Documentation System
-**Problem:** 9 separate markdown files with significant content overlap and empty files.
-- **Evidence:** 
-  - `COMPREHENSIVE_ISSUE_ANALYSIS.md` - Empty
-  - `IMPROVEMENT_CHECKLIST.md` - Empty  
-  - `PROJECT_STATUS_COMPLETE.md` - Empty
-  - Massive content duplication between `CHANGELOG.md` and `PROJECT_STATUS.md`
-- **Impact:** Documentation maintenance burden, confusion about source of truth
-- **Lesson:** Fewer, well-maintained docs are better than many scattered ones
+#### 3. Documentation sprawl creates maintenance overhead
+- Problem: Multiple overlapping markdown files with duplicated content
+- Status: Consolidating core docs; prioritizing README, PROJECT_STATUS, CHANGELOG, LESSONS_LEARNED
+- Lesson: Fewer, accurate docs beat many scattered ones
 
 ## 🛠️ Implementation Lessons
 
@@ -74,23 +63,17 @@ YaHeard was designed as a multi-AI transcription consensus engine that processes
 
 ### ❌ Implementation Problems Found
 
-#### 1. **BUG:** AssemblyAI Polling May Timeout Prematurely
-**Problem:** Hard-coded 30-second polling limit may be insufficient for longer audio files.
-- **Evidence:** `assembly.ts:78` has `maxAttempts = 30` with 1-second intervals
-- **Impact:** Long audio files (>30 seconds processing) will fail unnecessarily
-- **Code Location:** `pollForResult()` method needs dynamic timeout based on file duration
+#### 1. AssemblyAI polling may timeout prematurely
+- Problem: Hard-coded 30-second polling limit may be insufficient for longer audio files
+- Status: Consider dynamic timeout based on duration; not yet implemented
 
-#### 2. **SECURITY ISSUE:** Raw API Responses in Metadata
-**Problem:** Full API responses stored in metadata could leak sensitive information.
-- **Evidence:** `assembly.ts:46` stores `rawResponse: result` in metadata
-- **Impact:** Could expose API internals or sensitive data in logs/exports
-- **Fix Required:** Sanitize metadata to only include necessary fields
+#### 2. Metadata may contain raw API responses
+- Problem: Storing raw responses risks leaking sensitive details
+- Status: Consider sanitizing metadata to only include necessary fields
 
-#### 3. **PERFORMANCE ISSUE:** Quadratic Similarity Calculations
-**Problem:** Consensus algorithm recalculates similarities multiple times.
-- **Evidence:** `calculateConsensusText()` and `calculateConsensusConfidence()` both call similarity
-- **Impact:** O(n²) complexity repeated multiple times for same data
-- **Fix Required:** Cache pairwise similarities in a matrix
+#### 3. Performance: Quadratic similarity calculations
+- Problem: Similarities recalculated multiple times
+- Status: Needs simple pairwise cache in comparison.ts
 
 ## 📊 Documentation and Project Management Lessons
 
@@ -134,10 +117,10 @@ YaHeard was designed as a multi-AI transcription consensus engine that processes
 ## 🚀 Recommendations for Future Projects
 
 ### Immediate Actions for YaHeard
-1. **Fix Gemini format bug** - Critical UI functionality blocker
-2. **Standardize confidence handling** - Choose one approach and apply everywhere  
-3. **Implement similarity caching** - Major performance improvement
-4. **Consolidate documentation** - Reduce from 9 files to 4 maximum
+1. Standardize confidence handling end-to-end
+2. Implement similarity caching in comparison.ts
+3. Add integration tests and CI with coverage gates
+4. Add MIME/magic-byte sniffing for uploads
 
 ### Architectural Principles for Next Project
 1. **Start with fewer, better docs** - Quality over quantity always
@@ -169,6 +152,5 @@ YaHeard was designed as a multi-AI transcription consensus engine that processes
 
 ---
 
-*Last Updated: September 5, 2025*  
-*Analysis Status: Comprehensive code review completed*  
-*Next Review: After critical bug fixes*
+*Last Updated: September 6, 2025*  
+*Analysis Status: Updated to reflect recent fixes (Gemini formats) and current gaps*

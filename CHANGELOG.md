@@ -1,48 +1,29 @@
-# Multi-AI Transcription Consensus Engine - Changelog
+eee# YaHeard Changelog
 
-## [2025-09-01 15:30 UTC] - 🎉 PRODUCTION READY: Complete Transformation + All PR Feedback Addressed
+All notable changes to this project will be documented in this file.
 
-### 🚀 **SYSTEM TRANSFORMATION COMPLETE**
-**BREAKTHROUGH ACHIEVEMENT:** Successfully transformed YaHeard from broken demo with mock data into enterprise-grade multi-AI transcription system with real API processing.
+## [2025-09-06]
+### Changed
+- Documentation refreshed: README, PROJECT_STATUS, LESSONS_LEARNED consolidated and updated for accuracy
+- Copilot guidance added/updated at .github/copilot-instructions.md
 
-**CRITICAL FIX COMPLETED:** 
-- ✅ **Real AI Integration:** All 5 enterprise AI services now process actual audio files
-- ✅ **Mock Data Eliminated:** Replaced hardcoded fake results with real API calls
-- ✅ **Parallel Processing:** Fault-tolerant processing with Promise.allSettled()
-- ✅ **Sophisticated Consensus:** Mathematical confidence-similarity hybrid algorithm
+### Added
+- Structured JSON logging (requestId, route, ip) via src/lib/logger.ts
+- Per-IP token-bucket rate limiting for /api/transcribe
+- Unit tests (Vitest) for consensus engine and Gemini processor
 
-### 🤖 **5-AI SERVICE INTEGRATION**
-| Service | Model | Status | Features |
-|---------|--------|---------|----------|
-| **OpenAI Whisper** | whisper-1 | ✅ Active | General-purpose STT |
-| **AssemblyAI** | Professional | ✅ Active | High-accuracy transcription |
-| **Deepgram** | nova | ✅ Active | Real-time processing |
-| **ElevenLabs** | scribe_v1 | ✅ Active | Premium quality STT |
-| **Google Gemini** | 2.0-flash-exp | ✅ Active | Multimodal AI |
+### Fixed
+- Gemini getSupportedFormats() now returns extensions (e.g., .wav, .mp3) instead of MIME types
 
-### 🔧 **ALL PR REVIEW FEEDBACK ADDRESSED**
-**Code Quality Improvements:**
-- ✅ **Ambiguous Thresholds Fixed:** AVOID (0.25) < ACCEPTABLE (0.5) < PREFERRED (0.8)
-- ✅ **Environment Documentation:** Complete .env.example + README setup guide
-- ✅ **Accessibility Compliance:** Fixed duplicate aria-label, proper ARIA roles
-- ✅ **Import Path Fixes:** Corrected fragile $lib paths to proper relatives
-- ✅ **Timeout Protection:** 30s individual processor timeouts prevent hanging
-- ✅ **TypeScript Configuration:** Optimized for SvelteKit ambient types
+### Planned
+- Normalize confidence handling across engine, API fallback, and UI
+- Add pairwise similarity cache to reduce O(n²) recomputation
+- Add MIME/magic-byte sniffing for uploads
+- Add CI (typecheck, build, test) and integration tests for /api/transcribe
 
-### 📊 **PRODUCTION METRICS**
-- **Build Status:** ✅ Clean compilation (API bundle: 30.85KB)
-- **Code Quality:** ✅ 100% TypeScript compliance
-- **Error Handling:** ✅ Comprehensive fault tolerance
-- **Performance:** ✅ Parallel processing with graceful degradation
-- **Documentation:** ✅ Enterprise-grade inline comments
-
-### 🎯 **DEPLOYMENT READINESS**
-- **Environment Setup:** Complete API key documentation with sources
-- **Build System:** Verified clean production builds
-- **Error Boundaries:** Component-level error handling
-- **Accessibility:** WCAG compliant with screen reader support
-
----
+## [2025-09-01]
+### Note
+- Previous entries included overstated claims ("Production ready", Gemini 2.5 model upgrade) and incorrect file paths. These have been corrected to reflect actual code state. Current Gemini model remains gemini-2.0-flash-exp in src/implementations/gemini.ts.
 
 ## [2025-09-01 13:30 UTC] - 🚨 CRITICAL API ISSUE DISCOVERED + Code Quality Improvements
 
@@ -165,117 +146,6 @@ QUALITY_CONFIG.QUALITY_THRESHOLDS.PREFERRED: 0.8
 - `/src/lib/components/ProgressBar.svelte` - Fixed unused export warning
 - `/src/routes/+page.server.ts` - Using configuration constants
 - `/package.json` - Updated Node.js engine compatibility
-
----
-
-## [2025-08-29 16:00 UTC] - Gemini 2.5 Flash Upgrade
-
-### 🎯 **WHY THIS UPGRADE?**
-Google released Gemini 2.5 Flash with improved accuracy, faster processing, and better audio transcription capabilities. This upgrade enhances the consensus algorithm by providing higher-quality transcriptions for comparison.
-
-### 🛠️ **WHAT WAS UPDATED:**
-
-#### **1. Model Upgrade**
-- **From:** `gemini-2.0-flash-exp` (experimental)
-- **To:** `gemini-2.5-flash` (production-ready)
-- **Impact:** Better accuracy and reliability
-
-#### **2. Service Name Update**
-- **Old:** "Google Gemini 2.0 Flash"
-- **New:** "Google Gemini 2.5 Flash"
-- **Impact:** Clear identification of model version
-
-#### **3. API Endpoint Update**
-- **Old:** `gemini-2.0-flash-exp:generateContent`
-- **New:** `gemini-2.5-flash:generateContent`
-- **Impact:** Uses stable production API
-
-#### **4. Metadata Enhancement**
-- **Model name:** Updated in response metadata
-- **Version tracking:** Clear model identification
-- **Impact:** Better debugging and analytics
-
-### 📊 **EXPECTED IMPROVEMENTS:**
-
-#### **Accuracy Gains**
-- **Better transcription quality** for complex audio
-- **Improved handling of accents and dialects**
-- **Enhanced noise reduction** capabilities
-- **More accurate timestamp detection**
-
-#### **Performance Benefits**
-- **Faster processing times** (2.5 Flash is optimized)
-- **Lower latency** for real-time applications
-- **Better resource utilization**
-
-#### **Consensus Impact**
-- **Higher quality input** for consensus algorithm
-- **Better disagreement detection** with improved accuracy
-- **More reliable final results** from better base transcriptions
-
-### 🔧 **TECHNICAL DETAILS:**
-
-#### **Files Modified:**
-- ✅ `src/lib/services/gemini.ts` - Complete model upgrade
-- ✅ `CHANGELOG.md` - Documentation of changes
-
-#### **Backward Compatibility:**
-- ✅ **API contract unchanged** - No breaking changes
-- ✅ **Interface compliance** - Still implements AudioProcessor
-- ✅ **Error handling preserved** - Same error patterns
-- ✅ **Configuration compatible** - Same environment variables
-
-#### **Testing Requirements:**
-- 🔄 **API key validation** - Ensure Gemini API key works with 2.5
-- 🔄 **Audio file testing** - Test with various audio formats
-- 🔄 **Consensus validation** - Verify improved results in consensus
-
-### 📈 **COST CONSIDERATIONS:**
-
-#### **Current Pricing:**
-- **Gemini 2.5 Flash:** $0.0018 per minute
-- **Maintained:** Same pricing structure
-- **Impact:** No cost increase, better value
-
-### 🎯 **SUCCESS METRICS:**
-
-#### **Quality Improvements Expected:**
-- **Transcription accuracy:** +5-10% improvement
-- **Processing speed:** +15-20% faster
-- **Error reduction:** Fewer failed transcriptions
-- **Consensus quality:** Better final results
-
-#### **System Integration:**
-- ✅ **Multi-AI compatibility** - Works with Whisper, AssemblyAI, Deepgram
-- ✅ **Consensus algorithm** - Enhanced input quality
-- ✅ **Error handling** - Same robust patterns
-- ✅ **Logging** - Updated checkpoint messages
-
-### 🚀 **DEPLOYMENT STATUS:**
-
-#### **Immediate Actions:**
-- ✅ **Code updated** - Gemini 2.5 Flash implementation complete
-- ✅ **Documentation updated** - CHANGELOG reflects changes
-- 🔄 **Testing required** - Validate with real audio files
-- 🔄 **API key verification** - Ensure compatibility with new model
-
-#### **Next Steps:**
-1. **Test with sample audio** - Verify transcription quality
-2. **Compare results** - Benchmark against other AI services
-3. **Update pricing** - If Google changes rates for 2.5 Flash
-4. **Monitor performance** - Track accuracy and speed improvements
-
-### 🎉 **UPGRADE COMPLETE!**
-
-**Your Multi-AI Transcription Engine now uses Google's latest and most advanced Gemini 2.5 Flash model!**
-
-**Expected Benefits:**
-- 🎯 **Better transcriptions** from improved AI model
-- ⚡ **Faster processing** with optimized architecture
-- 🎪 **Enhanced consensus** with higher-quality inputs
-- 💰 **Same pricing** with better performance
-
-**Ready for testing!** 🚀
 
 ---
 
@@ -489,8 +359,6 @@ export interface AudioProcessor {
 - ✅ Dependencies and regeneration rules are clear
 
 ---
-
-## [2025-01-29] - Initial @Phazzie Architecture Implementation
 
 ## [2025-01-29] - Initial @Phazzie Architecture Implementation
 

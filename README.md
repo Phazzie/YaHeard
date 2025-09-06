@@ -43,8 +43,9 @@ npm run dev
 npm run build
 npm run preview
 
-# Deploy to Vercel (zero-config)
-npm run build  # Then connect to Vercel
+# Tests (Vitest)
+npm run test        # run once
+npm run test:watch  # watch mode
 ```
 
 ## 🏗️ Architecture Overview
@@ -77,6 +78,11 @@ src/
     ├── ui-utils.ts      # UI helper functions
     └── components/      # Reusable UI components
 ```
+
+### Operational Features
+- Structured JSON logging with requestId, route, and IP context
+- Per-IP token bucket rate limiting (60s window)
+- File validation: size limit (25MB) and extension whitelist
 
 ## 🧮 How the Consensus Algorithm Works
 
@@ -149,6 +155,11 @@ npm run build
 # Upload .mp3/.wav file via UI at http://localhost:5173
 ```
 
+### Automated Tests
+- Unit tests (Vitest) cover consensus engine and Gemini formats
+- Run with npm run test or npm run test:watch
+- Add more tests under tests/**/*.spec.ts
+
 ### Smoke Test
 - Ensure at least one API key is set in .env and server restarted
 - Start dev server: npm run dev
@@ -158,14 +169,18 @@ npm run build
 
 ### Code Quality
 - **TypeScript**: Strict mode enabled with comprehensive type checking
-- **Build Status**: ✅ Successful compilation with minor warnings
+- **Build & Tests**: ✅ Build succeeds; unit tests passing
 - **Architecture**: Contract-driven development with clear interfaces
 
 ## Known Issues
 
-### Critical Bugs (Fix Before Production)
-- Confidence inconsistency: different undefined handling across components
-- Performance issue: quadratic similarity calculations
+### Critical
+- Confidence inconsistency: undefined handling varies across components (UI/route fallback)
+- Performance: quadratic similarity recalculation (consider caching)
+
+### Testing Gaps
+- No integration tests for /api/transcribe yet
+- No CI pipeline configured
 
 See [LESSONS_LEARNED.md](LESSONS_LEARNED.md) for detailed analysis and [PROJECT_STATUS.md](PROJECT_STATUS.md) for current status.
 
@@ -190,4 +205,4 @@ MIT License - see LICENSE file for details
 
 **Built with**: SvelteKit + TypeScript + Tailwind CSS  
 **Architecture**: Contract-driven development for maintainable AI integrations  
-**Status**: Core functional, production-ready after bug fixes
+**Status**: Core functional; unit tests in place; production-ready after remaining fixes
