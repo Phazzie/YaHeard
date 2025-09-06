@@ -1,5 +1,7 @@
 # YaHeard Multi-AI Transcription Engine - Project Status
 
+> Deprecation notice: This status document may contain outdated or aspirational claims. For the authoritative, current state of the project, please refer to README.md and CHANGELOG.md.
+
 **Project:** YaHeard Multi-AI Transcription Consensus Engine  
 **Repository:** https://github.com/Phazzie/YaHeard  
 **Branch:** master  

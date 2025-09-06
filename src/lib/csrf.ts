@@ -27,27 +27,17 @@ const CSRF_CONFIG = {
 };
 
 /**
- * Generate a secure random string using Web Crypto API or Node.js crypto
+ * Generate a secure random string using Web Crypto API
+ * Note: Node.js 20+ provides globalThis.crypto with getRandomValues
  */
 function generateSecureRandom(length: number): string {
   const array = new Uint8Array(length);
-  
-  // Try Web Crypto API first (available in modern browsers and Node.js 16+)
-  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
     globalThis.crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
   }
-  
-  // Try Node.js crypto module (dynamic import for server-side compatibility)
-  try {
-    // Use dynamic import to avoid bundler issues
-    const crypto = eval('require')('crypto');
-    const randomBytes: Uint8Array = crypto.randomBytes(length);
-    return Array.from(randomBytes, (byte: number) => byte.toString(16).padStart(2, '0')).join('');
-  } catch (error) {
-    // No secure random generator available - fail securely
-    throw new Error('Secure random number generator (crypto.getRandomValues or Node.js crypto) is required for CSRF token generation. Cannot proceed without cryptographically secure randomness.');
-  }
+  // No secure random generator available - fail securely
+  throw new Error('Secure random number generator (crypto.getRandomValues) is required for CSRF token generation. Node.js 20+ or a modern browser is required.');
 }
 
 /**

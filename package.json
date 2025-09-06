@@ -2,7 +2,7 @@
   "name": "multi-ai-transcription-engine",
   "version": "1.0.0",
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   },
   "description": "Multi-AI Transcription Consensus Engine with @Phazzie Architecture",
   "type": "module",

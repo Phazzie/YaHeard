@@ -1,4 +1,5 @@
-import adapter from '@sveltejs/adapter-vercel';
+import autoAdapter from '@sveltejs/adapter-auto';
+import vercelAdapter from '@sveltejs/adapter-vercel';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -8,10 +9,10 @@ const config = {
   preprocess: vitePreprocess(),
 
   kit: {
-    // Use Vercel adapter with configuration for larger payloads
-    adapter: adapter({
-      maxDuration: 300 // 5 minutes timeout for all API routes
-    })
+    // Use Vercel adapter in CI/non-Windows environments; fallback to auto on Windows local builds to avoid symlink EPERM
+    adapter: (process.platform !== 'win32' || process.env.CI || process.env.VERCEL)
+      ? vercelAdapter({ maxDuration: 300 })
+      : autoAdapter()
   }
 };
 

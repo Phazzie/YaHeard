@@ -1,7 +1,7 @@
 import type { AudioProcessor, GeminiConfig } from '../contracts/processors';
 import type { TranscriptionResult } from '../contracts/transcription';
 
-const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=';
+const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 const TRANSCRIPTION_PROMPT = "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting.";
 
 /**
@@ -43,9 +43,12 @@ export class GeminiProcessor implements AudioProcessor {
         }
       };
 
-      const response = await fetch(`${API_ENDPOINT_BASE}${this.config.apiKey}`, {
+      const response = await fetch(API_ENDPOINT_BASE, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.config.apiKey
+        },
         body: JSON.stringify(requestBody)
       });
 
@@ -96,10 +99,7 @@ export class GeminiProcessor implements AudioProcessor {
   }
 
   getSupportedFormats(): string[] {
-    // Based on Gemini API documentation for multimodal input.
-    return [
-      'audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a',
-      'audio/ogg', 'audio/webm', 'audio/flac'
-    ];
+    // Return file extensions to comply with AudioProcessor contract
+    return ['.wav', '.mp3', '.mp4', '.m4a', '.ogg', '.webm', '.flac'];
   }
 }

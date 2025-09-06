@@ -1,13 +1,12 @@
-import { json, type RequestHandler } from '@sveltejs/kit';
 import { PERFORMANCE_CONFIG } from '$lib/config';
-import { validateCSRFToken } from '$lib/csrf';
-import { WhisperProcessor } from '../../../implementations/whisper';
+import { json, type RequestHandler } from '@sveltejs/kit';
+import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
 import { AssemblyAIProcessor } from '../../../implementations/assembly';
+import { ConsensusComparisonEngine } from '../../../implementations/comparison';
 import { DeepgramProcessor } from '../../../implementations/deepgram';
 import { ElevenLabsProcessor } from '../../../implementations/elevenlabs';
 import { GeminiProcessor } from '../../../implementations/gemini';
-import { ConsensusComparisonEngine } from '../../../implementations/comparison';
-import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
+import { WhisperProcessor } from '../../../implementations/whisper';
 
 // Reusable comparison engine instance (stateless)
 const comparisonEngine = new ConsensusComparisonEngine();
@@ -101,7 +100,7 @@ function getClientIP(request: Request): string | null {
  * Handles POST requests to the /api/transcribe endpoint.
  * This function orchestrates the multi-AI transcription and consensus process.
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
   try {
     // Rate limiting check
     const clientIP = getClientIP(request);
@@ -124,19 +123,42 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const formData = await request.formData();
     
-    // CSRF protection
+    // CSRF protection: double-submit cookie (stateless)
     const csrfToken = formData.get('csrfToken') as string;
-    if (!validateCSRFToken(csrfToken)) {
+    const csrfCookie = cookies.get('csrfToken');
+    if (!csrfToken || !csrfCookie || csrfToken !== csrfCookie) {
       return json(
         { error: 'Request could not be processed. Please try again.' },
         { status: 403 }
       );
     }
 
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('audio') as File | null;
+    const audioUrl = (formData.get('audioUrl') as string | null)?.trim() || '';
+    let fileForProcessing: File | null = null;
 
-    if (!audioFile) {
-      return json({ error: 'No audio file provided.' }, { status: 400 });
+    if (audioFile) {
+      fileForProcessing = audioFile;
+    } else if (audioUrl) {
+      // Server-side fetch of the remote audio to bypass client upload limits
+      try {
+        const resp = await fetch(audioUrl);
+        if (!resp.ok) {
+          return json({ error: `Failed to fetch audio from URL (${resp.status})` }, { status: 400 });
+        }
+        const contentType = resp.headers.get('content-type') || 'application/octet-stream';
+        const arrayBuf = await resp.arrayBuffer();
+        const sizeBytes = arrayBuf.byteLength;
+        if (sizeBytes > PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES) {
+          return json({ error: `Remote file too large: ${(sizeBytes/1024/1024).toFixed(1)}MB (max ${(PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES/1024/1024).toFixed(1)}MB)` }, { status: 400 });
+        }
+        // Construct a File (Web File is available in the runtime)
+        fileForProcessing = new File([new Uint8Array(arrayBuf)], 'remote-audio', { type: contentType });
+      } catch (e) {
+        return json({ error: `Could not download audio from URL: ${e instanceof Error ? e.message : 'Unknown error'}` }, { status: 400 });
+      }
+    } else {
+      return json({ error: 'No audio file or URL provided.' }, { status: 400 });
     }
 
     const processors = initializeProcessors();
@@ -144,7 +166,7 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: 'No AI services are configured on the server.' }, { status: 500 });
     }
 
-    const results = await processWithAllAIs(processors, audioFile);
+  const results = await processWithAllAIs(processors, fileForProcessing);
     const successfulResults = results.filter((r): r is TranscriptionResult => r !== null);
 
     if (successfulResults.length === 0) {

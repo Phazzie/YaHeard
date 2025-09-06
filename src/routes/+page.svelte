@@ -45,6 +45,7 @@
   import FileUpload from '$lib/components/FileUpload.svelte';
   import ResultsDisplay from '$lib/components/ResultsDisplay.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
+  import { chunkAudioFile } from '$lib/chunk-audio';
 
   // ========= REGENERATION BOUNDARY END: Imports =========
 
@@ -59,7 +60,13 @@
   // No need to trace variable origins during regeneration
   // Clear intent makes code maintenance easier
 
+  // Server-provided data (CSRF token)
+  export let data: { csrfToken: string };
+
   let audioFileFromUser: File | null = null;  // Current uploaded audio file
+  let audioUrlOverride: string = '';          // Optional public URL to audio (bypasses upload limits)
+  let useChunking: boolean = false;           // Enable client-side chunking for large files
+  let chunkProgress = 0;                      // 0-100 for chunk pipeline
   let isProcessingTranscription = false;      // Loading state during API calls
   let transcriptionResults: any[] = [];       // Results from all AI services
   let consensusResult: any = null;            // Consensus result with AI reasoning
@@ -133,8 +140,8 @@
     // Clear error messages guide user action
     // Fail fast to improve user experience
 
-    if (!audioFileFromUser) {
-      errorMessage = 'No file selected';
+    if (!audioFileFromUser && !audioUrlOverride) {
+      errorMessage = 'No file selected or URL provided';
       return;
     }
 
@@ -147,15 +154,47 @@
       // Real progress tracking instead of fake simulation
       uploadProgress = 10; // Start at 10% when request begins
 
-      const formData = new FormData();
-      formData.append('audio', audioFileFromUser);
+  const formData = new FormData();
+  if (audioUrlOverride) {
+    formData.append('audioUrl', audioUrlOverride.trim());
+  } else if (audioFileFromUser) {
+    formData.append('audio', audioFileFromUser);
+  }
+  // Include CSRF token provided by the server to satisfy API protection
+  formData.append('csrfToken', data?.csrfToken ?? '');
 
       console.log('@phazzie-debug: About to make fetch request');
       uploadProgress = 30; // 30% when starting fetch
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData
-      });
+      let response: Response;
+      if (useChunking && audioFileFromUser && !audioUrlOverride) {
+        // Chunk pipeline: split file, upload each chunk, merge transcripts
+        const chunks = await chunkAudioFile(audioFileFromUser, { targetBytes: 4 * 1024 * 1024, minSeconds: 10 });
+        const chunkTexts: { index: number; textsByService: Record<string, string> }[] = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const fd = new FormData();
+          fd.append('audio', chunks[i]);
+          fd.append('csrfToken', data?.csrfToken ?? '');
+          const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
+          if (!r.ok) {
+            const t = await r.text();
+            throw new Error(`Chunk ${i+1}/${chunks.length} failed: ${r.status} ${t}`);
+          }
+          const result = await r.json();
+          const textsByService: Record<string, string> = {};
+          (result?.individualResults || []).forEach((svc: any) => { textsByService[svc.serviceName] = svc.text || ''; });
+          chunkTexts.push({ index: i, textsByService });
+          chunkProgress = Math.round(((i + 1) / chunks.length) * 100);
+        }
+        // Merge chunk transcripts server-side for consistency
+        const mergeResp = await fetch('/api/merge-chunks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chunkTexts })
+        });
+        response = mergeResp;
+      } else {
+        response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+      }
 
       console.log('@phazzie-debug: Fetch request completed', response.status);
       uploadProgress = 60; // 60% when fetch completes
@@ -317,6 +356,19 @@
               </div>
             </div>
           {/if}
+
+          <!-- Optional: URL override to bypass upload limits on hosting providers -->
+          <div class="mt-6 glass-morphism rounded-2xl p-6 border border-white/20">
+            <label class="block text-white/80 text-sm mb-2" for="audio-url">Or paste a public audio URL (bypasses upload size limits)</label>
+            <input
+              id="audio-url"
+              type="url"
+              placeholder="https://example.com/path/to/your-audio-file.mp3"
+              class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-neon-cyan"
+              bind:value={audioUrlOverride}
+            />
+            <p class="text-xs text-white/60 mt-2">Tip: Host the file on a public URL (S3, Dropbox direct link, etc.). We'll fetch it server-side. On serverless hosts (e.g., Vercel), uploads larger than ~4.5MB will fail—use this URL option for big files.</p>
+          </div>
         </div>
 
         <!-- Ready to Process Section -->
@@ -333,6 +385,9 @@
               >
                 <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
               </button>
+              <div class="flex items-center justify-center gap-3 mt-4 text-white/80 text-sm">
+                <label class="flex items-center gap-2"><input type="checkbox" bind:checked={useChunking} /> Split large file into chunks (4MB target)</label>
+              </div>
               
               <p class="text-lg text-white/70 mt-4 animate-pulse">
                 Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
@@ -350,6 +405,9 @@
           <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Minds Collaborating...</h2>
 
           <ProgressBar progress={uploadProgress} />
+          {#if useChunking}
+            <div class="mt-2 text-white/70 text-sm">Chunk progress: {chunkProgress}%</div>
+          {/if}
 
           <div class="mt-8 space-y-4">
             <p class="text-xl text-white/90">Processing your audio with 5 AI services...</p>
@@ -384,13 +442,8 @@
           <div class="flex justify-center space-x-6 mt-8">
             <button 
               on:click={() => {
-                // Reset to upload state
-                displayState = 'upload';
-                transcriptionResults = [];
-                consensusResult = null;
-                audioFileFromUser = null;
-                errorMessage = '';
-                uploadProgress = 0;
+                // Reload to obtain a fresh CSRF token for the next submission
+                window.location.reload();
               }}
               class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
             >
@@ -755,9 +808,6 @@
     animation: slideInUp 0.6s ease-out;
   }
 
-  .animate-bounce-in {
-    animation: bounceIn 1s ease-out;
-  }
 
   .animate-glow-pulse {
     animation: glow-pulse 2s ease-in-out infinite alternate;
@@ -794,9 +844,6 @@
     50% { transform: translateY(-5px); }
   }
 
-  .animate-pulse-slow {
-    animation: pulse 3s ease-in-out infinite;
-  }
 
   .animate-neon-flicker {
     animation: neon-flicker 1.5s ease-in-out infinite alternate;

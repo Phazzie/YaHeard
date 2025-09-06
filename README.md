@@ -1,12 +1,20 @@
 # Multi-AI Transcription Consensus Engine
 
-🚀 **@Phazzie Contract-Driven Development Mode ACTIVATED!**
+SvelteKit app that runs an uploaded audio file through multiple AI transcription services in parallel (Whisper, AssemblyAI, Deepgram, ElevenLabs, Gemini) and returns a consensus transcription with reasoning and per-service stats.
 
-A SvelteKit application that processes audio files through multiple AI transcription services (Whisper, AssemblyAI, Deepgram) and generates consensus transcriptions for improved accuracy.
+Built with a contract-driven architecture (interfaces in `src/contracts/`, implementations in `src/implementations/`) and regeneration seams to make refactors and fixes low-risk.
 
-## 🏗️ @Phazzie Architecture
+## 🛡️ Security notes
 
-This project follows the **@Phazzie Contract-Driven Development** methodology:
+- CSRF protection (double-submit cookie): on page load, the server generates a token in `+page.server.ts`, sets it as a cookie, and also returns the token to the page. The client submits the token with the form; the API compares the submitted value against the cookie on every request. This is stateless and suitable for serverless deployments.
+- Rate limiting: simple in-memory IP limit to prevent abuse during development. For production or serverless/multi-instance deployments, replace with Redis or another distributed store.
+- Error handling: the API avoids leaking details in production; detailed messages are shown only in dev.
+
+Important: The current controls are suitable for local/dev. For production, plan to externalize rate limit state, add content security policy headers, and structured logging/monitoring. See `DEPLOYMENT.md` for details.
+
+## 🏗️ Architecture (contract-driven)
+
+This project follows a contract-first approach:
 
 ### Core Principles
 - **Contracts First**: Define interfaces before implementations
@@ -38,10 +46,10 @@ src/
     └── ProgressBar.svelte
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick start
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+
 - npm or yarn
 
 ### Installation
@@ -49,9 +57,9 @@ src/
 npm install
 ```
 
-### Environment Configuration
+### Environment configuration
 
-**⚠️ IMPORTANT**: At least one API key is required for the application to function. The server will return a 500 error if no API keys are configured.
+⚠️ At least one API key is required for the application to function. The server will return a 500 if no API keys are configured.
 
 1. **Copy the environment template:**
 ```bash
@@ -68,7 +76,7 @@ ELEVENLABS_API_KEY=your-elevenlabs-key-here
 GEMINI_API_KEY=your-gemini-key-here
 ```
 
-#### API Key Sources:
+#### API key sources
 
 | Service | Get API Key From | Status | Notes |
 |---------|------------------|--------|--------|
@@ -85,13 +93,13 @@ GEMINI_API_KEY=your-gemini-key-here
 npm run dev
 ```
 
-### Build for Production
+### Build for production
 ```bash
 npm run build
 npm run preview
 ```
 
-## 🔧 @Phazzie Regeneration Guide
+## 🔧 Regeneration guide
 
 ### When Something Breaks
 1. **Check Console Logs**: Look for `@phazzie-error` messages
@@ -99,7 +107,7 @@ npm run preview
 3. **Regenerate Section**: Replace only the broken section
 4. **Test Independently**: Each section can be tested separately
 
-### Regeneration Boundaries
+### Regeneration boundaries
 Each major function is wrapped with:
 ```javascript
 // ========= REGENERATION BOUNDARY START: [Section Name] ==========
@@ -112,16 +120,16 @@ Each major function is wrapped with:
 // ========= REGENERATION BOUNDARY END: [Section Name] ==========
 ```
 
-### Files That Can Be Regenerated Independently
+### Files that can be regenerated independently
 - `src/implementations/whisper.ts` - Complete Whisper integration
 - `src/implementations/assembly.ts` - Complete AssemblyAI integration
 - `src/implementations/comparison.ts` - Consensus algorithm
 - `src/routes/+page.svelte` sections - UI components
 - `src/routes/api/transcribe/+server.ts` sections - API logic
 
-## 📋 Contracts Overview
+## 📋 Contracts overview
 
-### File Upload Contract
+### File upload contract
 ```typescript
 interface FileUploadContract {
   accept: string[]        // ['.mp3', '.wav', '.m4a', '.webm']
@@ -130,7 +138,7 @@ interface FileUploadContract {
 }
 ```
 
-### AI Processor Contract
+### AI processor contract
 ```typescript
 interface AudioProcessor {
   serviceName: string
@@ -140,7 +148,7 @@ interface AudioProcessor {
 }
 ```
 
-## 🎯 Success Criteria
+## 🎯 Success criteria
 - [x] Project runs with `npm run dev`
 - [x] File upload accepts audio files
 - [x] Clear seam points marked with `@phazzie-regeneration-point`
@@ -148,35 +156,101 @@ interface AudioProcessor {
 - [x] Console logs show `@phazzie-checkpoint-X` messages
 - [x] Each major function can be regenerated independently
 
-## 🔄 Current Status
-- **Contracts**: ✅ Defined and stable
-- **UI Components**: ✅ Working with Tailwind CSS
-- **File Upload**: ✅ Drag-and-drop with validation
-- **API Structure**: ✅ Ready for AI integrations
-- **AI Implementations**: 🔄 Placeholder (needs real API keys)
+## 🔄 Current status
+- Contracts: ✅ Defined and stable
+- UI components: ✅ Working with Tailwind CSS
+- File upload: ✅ Drag-and-drop with validation
+- API route: ✅ Orchestrates real AI processors in parallel with timeouts
+- AI implementations: ✅ Active when corresponding API keys are present
 
 ## 🚀 Deployment
-Ready for Vercel deployment with zero configuration:
+Optimized for Vercel with the Vercel adapter. Notes:
+
+- Local builds on Windows may encounter a symlink EPERM error during the final adapter output step. Development (`npm run dev`) and preview (`npm run preview`) still work. For production builds, use WSL or CI/Linux/macOS runners.
+
+Adapter behavior
+- On Windows local builds, the project uses the auto adapter to avoid the symlink EPERM during build.
+- On CI/Vercel (when CI or VERCEL env is set), the Vercel adapter is used with maxDuration 300s.
+- To force the Vercel adapter locally, set the environment variable VERCEL=1 (may hit the Windows symlink limitation).
 
 ```bash
 npm run build
 # Deploy to Vercel
 ```
 
-## 📝 Adding New AI Services
+See `DEPLOYMENT.md` for comprehensive deployment guidance (adapters, Windows notes, environment variables).
+
+## 📝 Adding new AI services
 1. Create new contract in `src/contracts/processors.ts`
 2. Implement in `src/implementations/[service].ts`
 3. Add to API endpoint processing pipeline
 4. Update UI to show new service
 
 ## 🐛 Troubleshooting
-- **File too large**: Check `MAX_FILE_SIZE_BYTES` in contracts
-- **Unsupported format**: Check `SUPPORTED_AUDIO_FORMATS`
-- **API errors**: Look for `@phazzie-error` in console
-- **Regeneration needed**: Follow the boundary comments
+- File too large: Check `PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES`
+- Unsupported format: See each processor's `getSupportedFormats()`
+- API errors: In dev, refer to server logs. In prod, generic messages are returned by design.
+- CSRF errors: Ensure the page was loaded before submitting. The app injects the CSRF token automatically; reloading the page refreshes it.
+
+## � Large files
+
+Two supported strategies to handle big audio without hitting client upload limits:
+
+1) Server-side URL ingestion
+- Provide a publicly accessible `audioUrl` instead of uploading the file. The server downloads the audio and processes it. Size is validated against `PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES`.
+
+2) Client-side chunking + server merge
+- The UI can split the selected audio into ~4MB WAV chunks, send each chunk to `/api/transcribe`, then call `/api/merge-chunks` to assemble per-service texts and compute a final consensus.
+
+Trade-offs: token-level word confidences aren’t preserved by the merge step. See `LARGE_FILES.md` for request/response details and examples.
+
+## �📡 API
+
+Endpoint: POST /api/transcribe
+
+Request: multipart/form-data
+- csrfToken: string (required; injected by the UI automatically)
+- One of:
+  - audio: File
+  - audioUrl: string (public URL to audio; server downloads and processes)
+
+Response: ConsensusResult (shape simplified)
+```
+{
+  "finalText": string,
+  "consensusConfidence": number, // 0..1
+  "individualResults": [
+    {
+      "id": string,
+      "serviceName": string,
+      "text": string,
+      "confidence": number | undefined,
+      "processingTimeMs": number,
+      "timestamp": string,
+      "metadata": object
+    }
+  ],
+  "disagreements": [...],
+  "stats": {
+    "totalProcessingTimeMs": number,
+    "servicesUsed": number,
+    "averageConfidence": number,
+    "disagreementCount": number
+  },
+  "reasoning": { "finalReasoning": string, "steps": [...] }
+}
+```
+
+Endpoint: POST /api/merge-chunks
+
+Request: application/json
+- chunkTexts: Array<{ index: number; textsByService: Record<string,string> }>
+
+Notes
+- Use this after uploading multiple chunks to `/api/transcribe` and collecting each chunk’s per-service texts.
+- The endpoint concatenates per-service texts (with overlap-aware stitching) and runs the same consensus engine.
+
+Response: ConsensusResult (same overall shape as above)
 
 ---
-
-**Built with ❤️ for @Phazzie's regeneration-over-debug workflow**
-
-*Time: 2025-01-29 | Status: Ready for AI API Integration*
+Built with ❤️ for a regeneration-over-debug workflow
