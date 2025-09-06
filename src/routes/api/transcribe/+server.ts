@@ -11,12 +11,107 @@ import type { AudioProcessor, TranscriptionResult } from '../../../contracts/pro
 // Reusable comparison engine instance (stateless)
 const comparisonEngine = new ConsensusComparisonEngine();
 
+// Rate limiting configuration
+const RATE_LIMIT_CONFIG = {
+  MAX_REQUESTS: 10,
+  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+  CLEANUP_INTERVAL: 5 * 60 * 1000 // 5 minutes
+};
+
+// Rate limiting storage (in production, use Redis or similar)
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+
+/**
+ * IP-based rate limiting with automatic cleanup
+ */
+function checkRateLimit(clientIP: string): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const clientData = rateLimitMap.get(clientIP);
+
+  // Clean up expired entries periodically
+  if (Math.random() < 0.1) { // 10% chance to trigger cleanup
+    cleanupExpiredEntries(now);
+  }
+
+  if (!clientData) {
+    // First request from this IP
+    rateLimitMap.set(clientIP, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  // Check if window has expired
+  if (now - clientData.windowStart >= RATE_LIMIT_CONFIG.WINDOW_MS) {
+    // Reset window
+    rateLimitMap.set(clientIP, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  // Check if within rate limit
+  if (clientData.count < RATE_LIMIT_CONFIG.MAX_REQUESTS) {
+    clientData.count++;
+    return { allowed: true };
+  }
+
+  // Rate limit exceeded
+  const timeRemaining = RATE_LIMIT_CONFIG.WINDOW_MS - (now - clientData.windowStart);
+  return { allowed: false, retryAfter: Math.ceil(timeRemaining / 1000) };
+}
+
+/**
+ * Clean up expired rate limit entries to prevent memory leaks
+ */
+function cleanupExpiredEntries(now: number) {
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now - data.windowStart >= RATE_LIMIT_CONFIG.WINDOW_MS) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}
+
+/**
+ * Extract client IP from request, handling various proxy scenarios
+ */
+function getClientIP(request: Request): string {
+  // Try to get real IP from headers (for proxies/load balancers)
+  const xForwardedFor = request.headers.get('x-forwarded-for');
+  if (xForwardedFor) {
+    return xForwardedFor.split(',')[0].trim();
+  }
+
+  const xRealIP = request.headers.get('x-real-ip');
+  if (xRealIP) {
+    return xRealIP.trim();
+  }
+
+  // Fallback to direct connection (may not be available in all environments)
+  return 'unknown';
+}
+
 /**
  * Handles POST requests to the /api/transcribe endpoint.
  * This function orchestrates the multi-AI transcription and consensus process.
  */
 export const POST: RequestHandler = async ({ request }) => {
   try {
+    // Rate limiting check
+    const clientIP = getClientIP(request);
+    const rateLimitResult = checkRateLimit(clientIP);
+    
+    if (!rateLimitResult.allowed) {
+      return json(
+        { 
+          error: 'Rate limit exceeded. Too many requests from this IP address.',
+          retryAfter: rateLimitResult.retryAfter
+        }, 
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitResult.retryAfter?.toString() || '900'
+          }
+        }
+      );
+    }
+
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
 
