@@ -9,7 +9,7 @@
 - UI stats clarified: total processing time reflects parallel execution by taking the max across services, not a sum.
 - CSRF propagation aligned end-to-end: token generated in +page.server.ts and submitted by the client; API validates per request.
 - Gemini implementation notes corrected: current model in code is gemini-2.0-flash-exp using header-based API key (x-goog-api-key) and base64 via Buffer. The previous "Gemini 2.5 Flash Upgrade" entry represents an aspirational target and is not yet reflected in code.
-- Removed empty/outdated docs to reduce noise: PROJECT_STATUS_COMPLETE.md, IMPROVEMENT_CHECKLIST.md, IMPROVEMENT_CHECKLIST_REORGANIZED.md, COMPREHENSIVE_ISSUE_ANALYSIS.md.
+- Archived empty/outdated docs to reduce noise (moved to `docs/archive/` with pointers left in root): PROJECT_STATUS_COMPLETE.md, IMPROVEMENT_CHECKLIST.md, IMPROVEMENT_CHECKLIST_REORGANIZED.md, COMPREHENSIVE_ISSUE_ANALYSIS.md.
 
 ### ✅ Why this matters
 - Ensures readers and contributors have an accurate picture of capabilities and constraints.
