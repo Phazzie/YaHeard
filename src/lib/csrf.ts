@@ -3,9 +3,21 @@
  * @purpose CSRF protection utilities for enterprise security
  * @phazzie-status implemented
  * @last-regenerated 2025-09-06
+ * 
+ * PRODUCTION READINESS NOTICE:
+ * This implementation uses in-memory storage which is NOT suitable for production
+ * environments running on:
+ * - Serverless platforms (Vercel, Netlify, AWS Lambda)
+ * - Multi-instance deployments behind load balancers
+ * - Container orchestration (Kubernetes, Docker Swarm)
+ * 
+ * For production use, replace tokenStore with:
+ * - Redis for distributed caching with TTL
+ * - Database with indexed expiration queries
+ * - Distributed cache service (AWS ElastiCache, Google Memorystore)
  */
 
-// CSRF token storage (in production, use Redis or database)
+// CSRF token storage (⚠️ IN-MEMORY - NOT PRODUCTION READY FOR DISTRIBUTED SYSTEMS)
 const tokenStore = new Map<string, { created: number; used: boolean }>();
 
 const CSRF_CONFIG = {
@@ -15,23 +27,27 @@ const CSRF_CONFIG = {
 };
 
 /**
- * Generate a secure random string using Web Crypto API
+ * Generate a secure random string using Web Crypto API or Node.js crypto
  */
 function generateSecureRandom(length: number): string {
-  // Use Web Crypto API for secure random generation
   const array = new Uint8Array(length);
   
-  // In Node.js environment (server-side)
-  if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+  // Try Web Crypto API first (available in modern browsers and Node.js 16+)
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && globalThis.crypto.getRandomValues) {
     globalThis.crypto.getRandomValues(array);
-  } else {
-    // Fallback for environments without crypto
-    for (let i = 0; i < length; i++) {
-      array[i] = Math.floor(Math.random() * 256);
-    }
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   }
   
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  // Try Node.js crypto module (dynamic import for server-side compatibility)
+  try {
+    // Use dynamic import to avoid bundler issues
+    const crypto = eval('require')('crypto');
+    const randomBytes: Uint8Array = crypto.randomBytes(length);
+    return Array.from(randomBytes, (byte: number) => byte.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    // No secure random generator available - fail securely
+    throw new Error('Secure random number generator (crypto.getRandomValues or Node.js crypto) is required for CSRF token generation. Cannot proceed without cryptographically secure randomness.');
+  }
 }
 
 /**
@@ -44,10 +60,8 @@ export function generateCSRFToken(): string {
   // Store token with timestamp
   tokenStore.set(token, { created: now, used: false });
   
-  // Cleanup old tokens periodically
-  if (Math.random() < 0.1) {
-    cleanupExpiredTokens(now);
-  }
+  // Cleanup expired tokens on every token generation to prevent memory leaks
+  cleanupExpiredTokens(now);
   
   return token;
 }

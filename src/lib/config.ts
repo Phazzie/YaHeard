@@ -38,6 +38,12 @@ export const CONSENSUS_CONFIG = {
     TEXT_SIMILARITY: 0.7,
     CONFIDENCE_SCORE: 0.2,
     PROCESSING_SPEED: 0.1
+  },
+  
+  /** Similarity algorithm weights for enhanced comparison */
+  SIMILARITY_WEIGHTS: {
+    JACCARD_WEIGHT: 0.6,      // Word-level similarity weight
+    LEVENSHTEIN_WEIGHT: 0.4   // Character-level similarity weight
   }
 } as const;
 

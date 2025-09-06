@@ -268,14 +268,15 @@ export class ConsensusComparisonEngine implements ComparisonEngine {
 
   /**
    * Enhanced similarity calculation combining Levenshtein and Jaccard similarities.
-   * Uses weighted approach: 60% Jaccard (word-level) + 40% Levenshtein (character-level)
+   * Uses configurable weighted approach from CONSENSUS_CONFIG
    */
   private calculateEnhancedSimilarity(a: string, b: string): number {
     const jaccardSim = this.calculateJaccardSimilarity(a, b);
     const levenshteinSim = this.calculateLevenshteinSimilarity(a, b);
     
-    // Weight: 60% word-level similarity, 40% character-level similarity
-    return (jaccardSim * 0.6) + (levenshteinSim * 0.4);
+    // Use configurable weights for better maintainability
+    const { JACCARD_WEIGHT, LEVENSHTEIN_WEIGHT } = CONSENSUS_CONFIG.SIMILARITY_WEIGHTS;
+    return (jaccardSim * JACCARD_WEIGHT) + (levenshteinSim * LEVENSHTEIN_WEIGHT);
   }
 
   private levenshteinDistance(a: string, b: string): number {

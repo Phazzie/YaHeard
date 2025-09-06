@@ -19,20 +19,29 @@ const RATE_LIMIT_CONFIG = {
   CLEANUP_INTERVAL: 5 * 60 * 1000 // 5 minutes
 };
 
-// Rate limiting storage (in production, use Redis or similar)
+// ⚠️ PRODUCTION READINESS WARNING:
+// Rate limiting storage uses in-memory Map which is NOT suitable for:
+// - Serverless deployments (Vercel, Netlify, AWS Lambda)
+// - Multi-instance environments behind load balancers 
+// - Kubernetes/Docker container deployments
+// 
+// For production, replace with Redis, database, or distributed cache
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 
 /**
  * IP-based rate limiting with automatic cleanup
  */
-function checkRateLimit(clientIP: string): { allowed: boolean; retryAfter?: number } {
+function checkRateLimit(clientIP: string | null): { allowed: boolean; retryAfter?: number; error?: string } {
+  // Reject requests where IP cannot be determined for security
+  if (!clientIP) {
+    return { allowed: false, error: 'Could not determine client IP address for rate limiting' };
+  }
+
   const now = Date.now();
   const clientData = rateLimitMap.get(clientIP);
 
-  // Clean up expired entries periodically
-  if (Math.random() < 0.1) { // 10% chance to trigger cleanup
-    cleanupExpiredEntries(now);
-  }
+  // Clean up expired entries on every request to prevent memory leaks
+  cleanupExpiredEntries(now);
 
   if (!clientData) {
     // First request from this IP
@@ -72,7 +81,7 @@ function cleanupExpiredEntries(now: number) {
 /**
  * Extract client IP from request, handling various proxy scenarios
  */
-function getClientIP(request: Request): string {
+function getClientIP(request: Request): string | null {
   // Try to get real IP from headers (for proxies/load balancers)
   const xForwardedFor = request.headers.get('x-forwarded-for');
   if (xForwardedFor) {
@@ -84,8 +93,8 @@ function getClientIP(request: Request): string {
     return xRealIP.trim();
   }
 
-  // Fallback to direct connection (may not be available in all environments)
-  return 'unknown';
+  // Could not determine a reliable client IP - return null for security
+  return null;
 }
 
 /**
@@ -101,14 +110,14 @@ export const POST: RequestHandler = async ({ request }) => {
     if (!rateLimitResult.allowed) {
       return json(
         { 
-          error: 'Rate limit exceeded. Too many requests from this IP address.',
+          error: rateLimitResult.error || 'Rate limit exceeded. Too many requests.',
           retryAfter: rateLimitResult.retryAfter
         }, 
         { 
-          status: 429,
-          headers: {
+          status: rateLimitResult.error ? 400 : 429,
+          headers: rateLimitResult.retryAfter ? {
             'Retry-After': rateLimitResult.retryAfter?.toString() || '900'
-          }
+          } : {}
         }
       );
     }
@@ -119,7 +128,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const csrfToken = formData.get('csrfToken') as string;
     if (!validateCSRFToken(csrfToken)) {
       return json(
-        { error: 'Invalid or expired CSRF token. Please refresh the page and try again.' },
+        { error: 'Request could not be processed. Please try again.' },
         { status: 403 }
       );
     }
