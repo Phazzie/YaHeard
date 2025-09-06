@@ -22,17 +22,17 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   red: '\x1b[31m',
-  cyan: '\x1b[36m'
+  cyan: '\x1b[36m',
 };
 
 // Create interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function askQuestion(question) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     rl.question(question, resolve);
   });
 }
@@ -52,7 +52,9 @@ async function parseAndCreateFiles() {
   // Check if input file exists
   if (!fs.existsSync(inputFile)) {
     console.log(`${colors.red}❌ ERROR: ${inputFile} not found!${colors.reset}`);
-    console.log(`${colors.yellow}Create a file called 'opus-output.txt' with Opus 4.1's output${colors.reset}`);
+    console.log(
+      `${colors.yellow}Create a file called 'opus-output.txt' with Opus 4.1's output${colors.reset}`
+    );
     rl.close();
     return;
   }
@@ -84,7 +86,7 @@ async function parseAndCreateFiles() {
         // Valid file block
         files.push({
           path: currentFile,
-          content: currentContent.join('\n')
+          content: currentContent.join('\n'),
         });
       }
       currentFile = null;
@@ -95,7 +97,9 @@ async function parseAndCreateFiles() {
     }
   }
 
-  console.log(`${colors.green}@phazzie-checkpoint-4: Found ${files.length} files to create${colors.reset}\n`);
+  console.log(
+    `${colors.green}@phazzie-checkpoint-4: Found ${files.length} files to create${colors.reset}\n`
+  );
 
   if (files.length === 0) {
     console.log(`${colors.red}❌ No file definitions found!${colors.reset}`);
@@ -148,7 +152,6 @@ async function parseAndCreateFiles() {
       fs.writeFileSync(fullPath, fileContent);
       console.log(`${colors.green}  ✅ Created successfully!${colors.reset}`);
       created++;
-
     } catch (error) {
       console.log(`${colors.red}  ❌ ERROR: ${error.message}${colors.reset}`);
       failed++;
@@ -157,7 +160,9 @@ async function parseAndCreateFiles() {
 
   // Summary
   console.log(`\n${colors.cyan}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}`);
-  console.log(`${colors.bright}${colors.green}🎉 @PHAZZIE FILE GENERATION COMPLETE!${colors.reset}\n`);
+  console.log(
+    `${colors.bright}${colors.green}🎉 @PHAZZIE FILE GENERATION COMPLETE!${colors.reset}\n`
+  );
   console.log(`${colors.green}  ✅ Created: ${created} files${colors.reset}`);
   console.log(`${colors.yellow}  ⏭️  Skipped: ${skipped} files${colors.reset}`);
   console.log(`${colors.red}  ❌ Failed: ${failed} files${colors.reset}`);

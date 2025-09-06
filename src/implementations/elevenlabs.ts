@@ -95,7 +95,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-elevenlabs-1: ElevenLabs processor initialized');
 
     // WHY THIS LOG:
     // =============
@@ -111,8 +110,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
   // @dependencies: config.apiKey must be available
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-elevenlabs-2: Checking ElevenLabs availability');
-
     // WHY THIS CHECK:
     // ===============
     // API key is required for ElevenLabs API calls
@@ -120,7 +117,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
     // This prevents runtime failures
 
     if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-elevenlabs-3: No API key configured');
       return false;
     }
 
@@ -130,7 +126,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
     // We assume it's available if we have an API key
     // Could add actual API ping in future regeneration
 
-    console.log('@phazzie-checkpoint-elevenlabs-4: ElevenLabs is available');
     return true;
   }
 
@@ -142,8 +137,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
   // @dependencies: ElevenLabs API must be accessible
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-elevenlabs-5: Starting REAL ElevenLabs API processing');
-
     // WHY THIS METHOD:
     // ================
     // This is where the actual ElevenLabs API integration happens
@@ -161,8 +154,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
         throw new Error('ELEVENLABS_API_KEY not configured - add to environment variables');
       }
 
-      console.log('@phazzie-checkpoint-elevenlabs-6: Converting file to buffer');
-
       // Convert File to ArrayBuffer for API
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
@@ -179,16 +170,14 @@ export class ElevenLabsProcessor implements AudioProcessor {
       formData.append('model_id', 'scribe_v1'); // ElevenLabs' most accurate model
       formData.append('language_code', 'en'); // English by default
 
-      console.log('@phazzie-checkpoint-elevenlabs-7: Calling ElevenLabs API');
-
       const startTime = Date.now();
 
       const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
         method: 'POST',
         headers: {
-          'xi-api-key': this.config.apiKey // ElevenLabs uses xi-api-key header
+          'xi-api-key': this.config.apiKey, // ElevenLabs uses xi-api-key header
         },
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {
@@ -198,8 +187,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
 
       const data = await response.json();
       const processingTime = Date.now() - startTime;
-
-      console.log('@phazzie-checkpoint-elevenlabs-8: Transcription completed successfully');
 
       // WHY THIS RESPONSE FORMAT:
       // =========================
@@ -218,13 +205,11 @@ export class ElevenLabsProcessor implements AudioProcessor {
           model: 'scribe_v1',
           language: data.language_code || 'en',
           wordCount: data.text ? data.text.split(' ').length : 0,
-          apiVersion: 'v1'
-        }
+          apiVersion: 'v1',
+        },
       };
 
-      console.log('@phazzie-checkpoint-elevenlabs-9: Returning transcription result');
       return result;
-
     } catch (error) {
       // WHY THIS ERROR HANDLING:
       // ========================
@@ -233,12 +218,6 @@ export class ElevenLabsProcessor implements AudioProcessor {
       // Should not expose sensitive information
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-elevenlabs:', errorMessage);
-      console.error('ELEVENLABS REGENERATION NEEDED:');
-      console.error('1. Check ELEVENLABS_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to ElevenLabs');
 
       throw new Error(`REGENERATE_NEEDED: ElevenLabs API integration - ${errorMessage}`);
     }

@@ -13,8 +13,8 @@
   // @dependencies: file-upload contract
 
   import { createEventDispatcher } from 'svelte';
-  import type { FileUploadContract, UploadResult } from '../../contracts/file-upload.js';
-  import { SUPPORTED_AUDIO_FORMATS, MAX_FILE_SIZE_BYTES } from '../../contracts/transcription.js';
+  import type { UploadResult } from '../../contracts/file-upload';
+  import { MAX_FILE_SIZE_BYTES, SUPPORTED_AUDIO_FORMATS } from '../../contracts/transcription';
 
   // ========= REGENERATION BOUNDARY END: Imports and Types =========
 
@@ -40,6 +40,7 @@
   let selectedFile: File | null = null;
   let uploadError = '';
   let isUploading = false;
+  let isProcessingFile = false; // Prevent multiple simultaneous file processing
 
   // ========= REGENERATION BOUNDARY END: State Management =========
 
@@ -49,9 +50,7 @@
   // @dependencies: File upload contract
 
   function validateAudioFile(file: File): { isValid: boolean; error?: string } {
-    console.log('@phazzie-checkpoint-validation-1: Validating file');
-
-    // Check file size
+    // Check file size first
     if (file.size > maxSize) {
       const maxSizeMB = (maxSize / 1024 / 1024).toFixed(1);
       const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
@@ -61,7 +60,7 @@
       };
     }
 
-    // Check file type
+    // Check file extension
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!accept.includes(fileExtension)) {
       return {
@@ -70,7 +69,36 @@
       };
     }
 
-    console.log('@phazzie-checkpoint-validation-2: File validation passed');
+    // Check MIME type for additional security
+    const allowedMimeTypes = [
+      'audio/mpeg',
+      'audio/mp3', 
+      'audio/wav',
+      'audio/wave',
+      'audio/x-wav',
+      'audio/mp4',
+      'audio/m4a',
+      'audio/aac',
+      'audio/ogg',
+      'audio/webm',
+      'audio/flac'
+    ];
+
+    if (file.type && !allowedMimeTypes.includes(file.type)) {
+      return {
+        isValid: false,
+        error: `Invalid file type: ${file.type}. Please upload an audio file.`
+      };
+    }
+
+    // Check minimum file size (prevent empty files)
+    if (file.size < 1024) { // 1KB minimum
+      return {
+        isValid: false,
+        error: 'File too small. Please upload a valid audio file.'
+      };
+    }
+
     return { isValid: true };
   }
 
@@ -82,12 +110,12 @@
   // @dependencies: File validation, state management
 
   async function processSelectedFile(file: File) {
-    console.log('@phazzie-checkpoint-upload-1: Processing selected file');
+
 
     const validation = validateAudioFile(file);
     if (!validation.isValid) {
       uploadError = validation.error || 'Invalid file';
-      console.error('@phazzie-error: File validation failed');
+
       return;
     }
 
@@ -96,7 +124,7 @@
       uploadError = '';
       isUploading = true;
 
-      console.log('@phazzie-checkpoint-upload-2: File validated, preparing upload');
+
 
       // Create upload result
       const uploadResult: UploadResult = {
@@ -112,17 +140,17 @@
         }
       };
 
-      console.log('@phazzie-checkpoint-upload-3: Upload result created');
+
 
       // Dispatch event to parent component
       dispatch('fileUploaded', { file, result: uploadResult });
 
-      console.log('@phazzie-checkpoint-upload-4: File upload completed successfully');
+
 
     } catch (error) {
-      console.error('@phazzie-error: File processing failed');
+
       uploadError = 'REGENERATE_NEEDED: File processing';
-      console.error(error);
+
     } finally {
       isUploading = false;
     }

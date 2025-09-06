@@ -56,24 +56,17 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-assembly-1: AssemblyAI processor initialized');
   }
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-assembly-2: Checking AssemblyAI availability');
-
     if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-assembly-3: No API key configured');
       return false;
     }
 
-    console.log('@phazzie-checkpoint-assembly-4: AssemblyAI is available');
     return true;
   }
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-assembly-5: Starting REAL AssemblyAI processing');
-
     try {
       // WHY REAL API IMPLEMENTATION:
       // ============================
@@ -84,8 +77,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
       if (!this.config.apiKey) {
         throw new Error('ASSEMBLYAI_API_KEY not configured - add to environment variables');
       }
-
-      console.log('@phazzie-checkpoint-assembly-6: Converting file to buffer');
 
       // Convert File to ArrayBuffer for upload
       const arrayBuffer = await file.arrayBuffer();
@@ -99,16 +90,14 @@ export class AssemblyAIProcessor implements AudioProcessor {
       // Upload returns a URL, then transcription is requested
       // Polling is needed to check completion status
 
-      console.log('@phazzie-checkpoint-assembly-7: Uploading audio to AssemblyAI');
-
       // Step 1: Upload audio file
       const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
         method: 'POST',
         headers: {
-          'authorization': this.config.apiKey,
-          'content-type': 'application/octet-stream'
+          authorization: this.config.apiKey,
+          'content-type': 'application/octet-stream',
         },
-        body: uint8Array
+        body: uint8Array,
       });
 
       if (!uploadResponse.ok) {
@@ -117,19 +106,17 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
       const { upload_url } = await uploadResponse.json();
 
-      console.log('@phazzie-checkpoint-assembly-8: Requesting transcription');
-
       // Step 2: Request transcription
       const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
         method: 'POST',
         headers: {
-          'authorization': this.config.apiKey,
-          'content-type': 'application/json'
+          authorization: this.config.apiKey,
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
           audio_url: upload_url,
-          language_code: 'en'
-        })
+          language_code: 'en',
+        }),
       });
 
       if (!transcriptResponse.ok) {
@@ -137,8 +124,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
       }
 
       const { id } = await transcriptResponse.json();
-
-      console.log('@phazzie-checkpoint-assembly-9: Polling for completion');
 
       // Step 3: Poll for results (max 60 seconds)
       let attempts = 0;
@@ -149,15 +134,13 @@ export class AssemblyAIProcessor implements AudioProcessor {
 
         const statusResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${id}`, {
           headers: {
-            'authorization': this.config.apiKey
-          }
+            authorization: this.config.apiKey,
+          },
         });
 
         const result = await statusResponse.json();
 
         if (result.status === 'completed') {
-          console.log('@phazzie-checkpoint-assembly-10: Transcription completed successfully');
-
           const processingTime = Date.now() - startTime;
 
           const transcriptionResult: TranscriptionResult = {
@@ -171,13 +154,11 @@ export class AssemblyAIProcessor implements AudioProcessor {
               model: 'assembly-ai-best',
               language: result.language_code || 'en',
               wordCount: result.text.split(' ').length,
-              features: ['speaker_diarization', 'sentiment_analysis']
-            }
+              features: ['speaker_diarization', 'sentiment_analysis'],
+            },
           };
 
-          console.log('@phazzie-checkpoint-assembly-11: Returning transcription result');
           return transcriptionResult;
-
         } else if (result.status === 'error') {
           throw new Error('AssemblyAI transcription failed');
         }
@@ -186,7 +167,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
       }
 
       throw new Error('Transcription timeout after 60 seconds');
-
     } catch (error) {
       // WHY THIS ERROR HANDLING:
       // ========================
@@ -194,12 +174,6 @@ export class AssemblyAIProcessor implements AudioProcessor {
       // Should guide regeneration when things break
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-assembly:', errorMessage);
-      console.error('ASSEMBLYAI REGENERATION NEEDED:');
-      console.error('1. Check ASSEMBLYAI_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to AssemblyAI');
 
       throw new Error(`REGENERATE_NEEDED: AssemblyAI API integration - ${errorMessage}`);
     }

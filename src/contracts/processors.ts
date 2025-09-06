@@ -44,7 +44,11 @@
  * 5. UI and comparison engine don't need changes
  */
 
-import type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats } from './transcription';
+import type {
+    ConsensusResult,
+    Disagreement,
+    TranscriptionResult
+} from './transcription';
 
 /**
  * =============================================================================
@@ -92,25 +96,60 @@ export interface AudioProcessor {
 
 /**
  * =============================================================================
- * PROCESSOR CONFIGURATION - HOW TO SET UP AI SERVICES
+ * PROCESSOR CONFIGURATION OPTIONS - TYPED SERVICE SETTINGS
  * =============================================================================
  *
  * WHAT THIS REPRESENTS:
  * =====================
- * Configuration data needed to set up an AI processor. This includes API keys,
- * endpoints, and service-specific settings.
+ * Common configuration options that AI services may support.
+ * Provides type safety while allowing service-specific customization.
+ */
+export interface ProcessorOptions {
+  /** Language code for transcription (e.g., "en", "es", "fr") */
+  language?: string;
+
+  /** Model variant to use (e.g., "whisper-1", "base", "large") */
+  model?: string;
+
+  /** Request timeout in milliseconds */
+  timeout?: number;
+
+  /** Maximum retries on failure */
+  maxRetries?: number;
+
+  /** Enable/disable automatic punctuation */
+  punctuation?: boolean;
+
+  /** Enable/disable speaker diarization */
+  diarization?: boolean;
+
+  /** Custom headers for API requests */
+  headers?: Record<string, string>;
+
+  /** Service-specific additional options */
+  extra?: Record<string, unknown>;
+}
+
+/**
+ * =============================================================================
+ * PROCESSOR CONFIGURATION - WHAT EACH AI SERVICE NEEDS
+ * =============================================================================
  *
- * WHY THIS STRUCTURE:
- * ===================
- * - apiKey: Most services need authentication
- * - endpoint: Some services have multiple endpoints
+ * WHAT THIS REPRESENTS:
+ * =====================
+ * The configuration needed to initialize any AI transcription service.
+ * All processors must accept this standardized configuration.
+ *
+ * WHY THESE FIELDS:
+ * =================
+ * - apiKey: Authentication for the service
+ * - endpoint: Custom API endpoint (for self-hosted services)
  * - options: Service-specific configuration options
  *
- * SECURITY CONSIDERATIONS:
- * ========================
- * - API keys should never be exposed to the browser
- * - Configuration should be server-side only
- * - Use environment variables for sensitive data
+ * CONTRACT ENFORCEMENT:
+ * =====================
+ * All AI processors MUST accept this configuration format.
+ * This ensures interchangeable processors with consistent setup.
  */
 export interface ProcessorConfig {
   /** API key for the service */
@@ -120,7 +159,7 @@ export interface ProcessorConfig {
   endpoint?: string;
 
   /** Additional configuration options */
-  options?: Record<string, any>;
+  options?: ProcessorOptions;
 }
 
 /**
@@ -250,7 +289,9 @@ export interface ComparisonEngine {
  */
 
 // Re-export core types for convenience
-export type { TranscriptionResult, ConsensusResult, Disagreement, ConsensusStats } from './transcription';
+export type {
+    ConsensusResult, ConsensusStats, Disagreement, TranscriptionResult
+} from './transcription';
 
 /**
  * =============================================================================

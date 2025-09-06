@@ -96,7 +96,6 @@ export class DeepgramProcessor implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-deepgram-1: Deepgram processor initialized');
 
     // WHY THIS LOG:
     // =============
@@ -112,8 +111,6 @@ export class DeepgramProcessor implements AudioProcessor {
   // @dependencies: config.apiKey must be available
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-deepgram-2: Checking Deepgram availability');
-
     // WHY THIS CHECK:
     // ===============
     // API key is required for Deepgram API calls
@@ -121,7 +118,6 @@ export class DeepgramProcessor implements AudioProcessor {
     // This prevents runtime failures
 
     if (!this.config.apiKey) {
-      console.log('@phazzie-checkpoint-deepgram-3: No API key configured');
       return false;
     }
 
@@ -131,7 +127,6 @@ export class DeepgramProcessor implements AudioProcessor {
     // We assume it's available if we have an API key
     // Could add actual API ping in future regeneration
 
-    console.log('@phazzie-checkpoint-deepgram-4: Deepgram is available');
     return true;
   }
 
@@ -143,8 +138,6 @@ export class DeepgramProcessor implements AudioProcessor {
   // @dependencies: Deepgram API must be accessible
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-deepgram-5: Starting REAL Deepgram API processing');
-
     // WHY THIS METHOD:
     // ================
     // This is where the actual Deepgram API integration happens
@@ -162,8 +155,6 @@ export class DeepgramProcessor implements AudioProcessor {
         throw new Error('DEEPGRAM_API_KEY not configured - add to environment variables');
       }
 
-      console.log('@phazzie-checkpoint-deepgram-6: Converting file to base64');
-
       // Convert File to ArrayBuffer for API
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
@@ -176,14 +167,12 @@ export class DeepgramProcessor implements AudioProcessor {
 
       const base64Audio = btoa(String.fromCharCode(...uint8Array));
 
-      console.log('@phazzie-checkpoint-deepgram-7: Calling Deepgram API');
-
       const startTime = Date.now();
 
       const response = await fetch('https://api.deepgram.com/v1/listen', {
         method: 'POST',
         headers: {
-          'Authorization': `Token ${this.config.apiKey}`,
+          Authorization: `Token ${this.config.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -192,8 +181,8 @@ export class DeepgramProcessor implements AudioProcessor {
           smart_format: true,
           punctuate: true,
           utterances: true,
-          language: 'en-US'
-        })
+          language: 'en-US',
+        }),
       });
 
       if (!response.ok) {
@@ -203,8 +192,6 @@ export class DeepgramProcessor implements AudioProcessor {
 
       const data = await response.json();
       const processingTime = Date.now() - startTime;
-
-      console.log('@phazzie-checkpoint-deepgram-8: Transcription completed successfully');
 
       // WHY THIS RESPONSE FORMAT:
       // =========================
@@ -225,13 +212,11 @@ export class DeepgramProcessor implements AudioProcessor {
           smart_format: true,
           punctuate: true,
           utterances: data.results?.channels?.[0]?.alternatives?.[0]?.utterances || [],
-          wordCount: data.results?.channels?.[0]?.alternatives?.[0]?.words?.length || 0
-        }
+          wordCount: data.results?.channels?.[0]?.alternatives?.[0]?.words?.length || 0,
+        },
       };
 
-      console.log('@phazzie-checkpoint-deepgram-9: Returning transcription result');
       return result;
-
     } catch (error) {
       // WHY THIS ERROR HANDLING:
       // ========================
@@ -240,12 +225,6 @@ export class DeepgramProcessor implements AudioProcessor {
       // Should not expose sensitive information
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-deepgram:', errorMessage);
-      console.error('DEEPGRAM REGENERATION NEEDED:');
-      console.error('1. Check DEEPGRAM_API_KEY environment variable');
-      console.error('2. Verify API key has sufficient credits');
-      console.error('3. Ensure audio file is valid format');
-      console.error('4. Check network connectivity to Deepgram');
 
       throw new Error(`REGENERATE_NEEDED: Deepgram API integration - ${errorMessage}`);
     }

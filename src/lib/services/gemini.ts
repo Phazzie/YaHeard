@@ -46,7 +46,6 @@ export class GeminiService implements AudioProcessor {
 
   constructor(config: ProcessorConfig = {}) {
     this.config = config;
-    console.log('@phazzie-checkpoint-gemini-init: Gemini service initialized');
   }
 
   isConfigured(): boolean {
@@ -58,19 +57,14 @@ export class GeminiService implements AudioProcessor {
   }
 
   async isAvailable(): Promise<boolean> {
-    console.log('@phazzie-checkpoint-gemini-0: Checking Gemini availability');
     return this.isConfigured();
   }
 
   async processFile(file: File): Promise<TranscriptionResult> {
-    console.log('@phazzie-checkpoint-gemini-1: Starting REAL Gemini API processing');
-
     try {
       if (!this.isConfigured()) {
         throw new Error('GEMINI_API_KEY not configured - add to environment variables');
       }
-
-      console.log('@phazzie-checkpoint-gemini-2: Converting file to buffer');
 
       // WHY BASE64 ENCODING:
       // ====================
@@ -83,8 +77,6 @@ export class GeminiService implements AudioProcessor {
 
       const startTime = Date.now();
 
-      console.log('@phazzie-checkpoint-gemini-3: Calling Gemini API');
-
       // WHY THIS API STRUCTURE:
       // =======================
       // Gemini uses multimodal content structure
@@ -96,27 +88,29 @@ export class GeminiService implements AudioProcessor {
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            contents: [{
-              parts: [
-                {
-                  text: "Transcribe this audio exactly as spoken. Return ONLY the transcription, no other text."
-                },
-                {
-                  inlineData: {
-                    mimeType: "audio/wav",
-                    data: btoa(String.fromCharCode(...Array.from(uint8Array)))
-                  }
-                }
-              ]
-            }],
+            contents: [
+              {
+                parts: [
+                  {
+                    text: 'Transcribe this audio exactly as spoken. Return ONLY the transcription, no other text.',
+                  },
+                  {
+                    inlineData: {
+                      mimeType: 'audio/wav',
+                      data: btoa(String.fromCharCode(...Array.from(uint8Array))),
+                    },
+                  },
+                ],
+              },
+            ],
             generationConfig: {
-              temperature: 0.1,  // Low temperature for consistent transcription
-              maxOutputTokens: 8192  // Sufficient for most audio transcriptions
-            }
-          })
+              temperature: 0.1, // Low temperature for consistent transcription
+              maxOutputTokens: 8192, // Sufficient for most audio transcriptions
+            },
+          }),
         }
       );
 
@@ -134,8 +128,6 @@ export class GeminiService implements AudioProcessor {
       const data = await response.json();
       const transcriptionText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-      console.log('@phazzie-checkpoint-gemini-4: Transcription completed successfully');
-
       const processingTime = Date.now() - startTime;
 
       return {
@@ -149,13 +141,11 @@ export class GeminiService implements AudioProcessor {
           model: 'gemini-2.5-flash',
           wordCount: transcriptionText.split(' ').length,
           apiPattern: 'multimodal-inline-data', // Gemini-specific pattern
-          encodingMethod: 'base64' // Audio encoding method used
-        }
+          encodingMethod: 'base64', // Audio encoding method used
+        },
       };
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('@phazzie-error-gemini:', errorMessage);
 
       return {
         id: `gemini-error-${Date.now()}`,
@@ -164,7 +154,7 @@ export class GeminiService implements AudioProcessor {
         confidence: 0,
         processingTimeMs: 0,
         timestamp: new Date(),
-        error: errorMessage
+        error: errorMessage,
       };
     }
   }

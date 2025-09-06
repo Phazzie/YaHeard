@@ -69,16 +69,9 @@
  * 3. File size calculations use this
  * 4. Changing formats requires coordinated updates
  */
-export const SUPPORTED_AUDIO_FORMATS = [
-  '.mp3',
-  '.wav',
-  '.m4a',
-  '.webm',
-  '.flac',
-  '.ogg'
-] as const;
+export const SUPPORTED_AUDIO_FORMATS = ['.mp3', '.wav', '.m4a', '.webm', '.flac', '.ogg'] as const;
 
-export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
+export type AudioFormat = (typeof SUPPORTED_AUDIO_FORMATS)[number];
 
 /**
  * =============================================================================
@@ -99,7 +92,68 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
  * 2. Changing requires testing across all components
  * 3. Business decision that affects pricing
  */
-export const MAX_FILE_SIZE_BYTES = 60 \* 1024 \* 1024; // 10MB
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
+/**
+ * =============================================================================
+ * TRANSCRIPTION METADATA - STRUCTURED AI SERVICE DATA
+ * =============================================================================
+ *
+ * WHAT THIS REPRESENTS:
+ * =====================
+ * Standardized metadata structure that AI services can populate with
+ * service-specific information while maintaining type safety.
+ *
+ * WHY THESE FIELDS:
+ * =================
+ * - model: Which AI model was used (e.g., "whisper-1", "assemblyai-best")
+ * - language: Detected or specified language code
+ * - duration: Length of the processed audio in seconds
+ * - quality: Service-specific quality indicators
+ * - segments: Word-level or phrase-level timing information
+ * - error: Detailed error information if processing failed
+ * - extra: Escape hatch for service-specific data
+ *
+ * TYPE SAFETY APPROACH:
+ * ====================
+ * Rather than Record<string, any>, we define known fields with proper types
+ * and use an 'extra' field for truly service-specific data.
+ */
+export interface TranscriptionMetadata {
+  /** AI model or engine used for transcription */
+  model?: string;
+
+  /** Detected or specified language code (e.g., "en", "es", "fr") */
+  language?: string;
+
+  /** Duration of the processed audio in seconds */
+  duration?: number;
+
+  /** Service-specific quality score or indicators */
+  quality?: {
+    wordErrorRate?: number;
+    signalToNoiseRatio?: number;
+    audioQuality?: 'poor' | 'fair' | 'good' | 'excellent';
+  };
+
+  /** Word or phrase-level timing information */
+  segments?: Array<{
+    text: string;
+    startTime: number;
+    endTime: number;
+    confidence?: number;
+  }>;
+
+  /** Detailed error information if processing failed */
+  error?: {
+    code: string;
+    message: string;
+    details?: string;
+  };
+
+  /** Service-specific additional data that doesn't fit other fields */
+  extra?: Record<string, unknown>;
+}
 
 /**
  * =============================================================================
@@ -151,7 +205,7 @@ export interface TranscriptionResult {
   error?: string;
 
   /** Additional metadata specific to the AI service */
-  metadata?: Record<string, any>;
+  metadata?: TranscriptionMetadata;
 }
 
 /**

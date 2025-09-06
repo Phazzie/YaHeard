@@ -17,8 +17,6 @@
 const env = process.env;
 
 export async function callWhisperAPI(audioBuffer: Buffer): Promise<string> {
-  console.log('@phazzie-checkpoint-whisper-real-1: Calling REAL Whisper API');
-
   const formData = new FormData();
   const audioBlob = new Blob([new Uint8Array(audioBuffer)], { type: 'audio/wav' });
   formData.append('file', audioBlob, 'audio.wav');
@@ -27,9 +25,9 @@ export async function callWhisperAPI(audioBuffer: Buffer): Promise<string> {
   const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${env.OPENAI_API_KEY!}`
+      Authorization: `Bearer ${env.OPENAI_API_KEY!}`,
     },
-    body: formData
+    body: formData,
   });
 
   if (!response.ok) {
@@ -37,6 +35,6 @@ export async function callWhisperAPI(audioBuffer: Buffer): Promise<string> {
   }
 
   const data = await response.json();
-  console.log('@phazzie-checkpoint-whisper-real-2: Got transcription');
+
   return data.text;
 }

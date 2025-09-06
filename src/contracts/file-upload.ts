@@ -12,7 +12,7 @@
  *
  * @phazzie-status working
  * @last-regenerated 2025-01-29 13:54:37 UTC
-  * @dependencies transcription.ts - Uses SUPPORTED_AUDIO_FORMATS and MAX_FILE_SIZE_BYTES
+ * @dependencies transcription.ts - Uses SUPPORTED_AUDIO_FORMATS and MAX_FILE_SIZE_BYTES
  */
 
 import type { AudioFormat } from './transcription';
