@@ -1,5 +1,6 @@
 import { PERFORMANCE_CONFIG } from '$lib/config';
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { checkRateLimit, getClientIP, validateCsrfFromForm } from '$lib/security';
 import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
 import { AssemblyAIProcessor } from '../../../implementations/assembly';
 import { ConsensusComparisonEngine } from '../../../implementations/comparison';
@@ -11,90 +12,6 @@ import { WhisperProcessor } from '../../../implementations/whisper';
 // Reusable comparison engine instance (stateless)
 const comparisonEngine = new ConsensusComparisonEngine();
 
-// Rate limiting configuration
-const RATE_LIMIT_CONFIG = {
-  MAX_REQUESTS: 10,
-  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
-  CLEANUP_INTERVAL: 5 * 60 * 1000 // 5 minutes
-};
-
-// ⚠️ PRODUCTION READINESS WARNING:
-// Rate limiting storage uses in-memory Map which is NOT suitable for:
-// - Serverless deployments (Vercel, Netlify, AWS Lambda)
-// - Multi-instance environments behind load balancers 
-// - Kubernetes/Docker container deployments
-// 
-// For production, replace with Redis, database, or distributed cache
-const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
-
-/**
- * IP-based rate limiting with automatic cleanup
- */
-function checkRateLimit(clientIP: string | null): { allowed: boolean; retryAfter?: number; error?: string } {
-  // Reject requests where IP cannot be determined for security
-  if (!clientIP) {
-    return { allowed: false, error: 'Could not determine client IP address for rate limiting' };
-  }
-
-  const now = Date.now();
-  const clientData = rateLimitMap.get(clientIP);
-
-  // Clean up expired entries on every request to prevent memory leaks
-  cleanupExpiredEntries(now);
-
-  if (!clientData) {
-    // First request from this IP
-    rateLimitMap.set(clientIP, { count: 1, windowStart: now });
-    return { allowed: true };
-  }
-
-  // Check if window has expired
-  if (now - clientData.windowStart >= RATE_LIMIT_CONFIG.WINDOW_MS) {
-    // Reset window
-    rateLimitMap.set(clientIP, { count: 1, windowStart: now });
-    return { allowed: true };
-  }
-
-  // Check if within rate limit
-  if (clientData.count < RATE_LIMIT_CONFIG.MAX_REQUESTS) {
-    clientData.count++;
-    return { allowed: true };
-  }
-
-  // Rate limit exceeded
-  const timeRemaining = RATE_LIMIT_CONFIG.WINDOW_MS - (now - clientData.windowStart);
-  return { allowed: false, retryAfter: Math.ceil(timeRemaining / 1000) };
-}
-
-/**
- * Clean up expired rate limit entries to prevent memory leaks
- */
-function cleanupExpiredEntries(now: number) {
-  for (const [ip, data] of rateLimitMap.entries()) {
-    if (now - data.windowStart >= RATE_LIMIT_CONFIG.WINDOW_MS) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}
-
-/**
- * Extract client IP from request, handling various proxy scenarios
- */
-function getClientIP(request: Request): string | null {
-  // Try to get real IP from headers (for proxies/load balancers)
-  const xForwardedFor = request.headers.get('x-forwarded-for');
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0].trim();
-  }
-
-  const xRealIP = request.headers.get('x-real-ip');
-  if (xRealIP) {
-    return xRealIP.trim();
-  }
-
-  // Could not determine a reliable client IP - return null for security
-  return null;
-}
 
 /**
  * Handles POST requests to the /api/transcribe endpoint.
@@ -124,9 +41,8 @@ export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
     const formData = await request.formData();
     
     // CSRF protection: double-submit cookie (stateless)
-    const csrfToken = formData.get('csrfToken') as string;
     const csrfCookie = cookies.get('csrfToken');
-    if (!csrfToken || !csrfCookie || csrfToken !== csrfCookie) {
+    if (!validateCsrfFromForm(formData, csrfCookie)) {
       return json(
         { error: 'Request could not be processed. Please try again.' },
         { status: 403 }
