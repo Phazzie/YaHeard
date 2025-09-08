@@ -9,12 +9,13 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "start": "HOST=0.0.0.0 node build/index.js",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/adapter-node": "^5.3.1",
     "@sveltejs/kit": "2.4.3",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/node": "^20.19.13",
@@ -29,7 +30,6 @@
     "vite": "^5.0.3"
   },
   "dependencies": {
-    "@sveltejs/adapter-vercel": "^5.10.2",
     "@tailwindcss/forms": "^0.5.7"
   }
 }

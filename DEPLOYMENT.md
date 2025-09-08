@@ -1,14 +1,10 @@
 # Deployment Guide
 
-This project is built with SvelteKit v2, Vite v5, and TypeScript. It targets Vercel for production but runs well locally on Windows/macOS/Linux.
+This project is built with SvelteKit v2, Vite v5, and TypeScript. It is now configured for deployment on DigitalOcean App Platform.
 
-## Adapters and Windows caveat
+## Adapter
 
-The repo uses a conditional adapter strategy defined in `svelte.config.js`:
-- On CI/Vercel (when `CI` or `VERCEL` is set) or non-Windows platforms, it uses the Vercel adapter with `maxDuration: 300`.
-- On Windows local builds, it falls back to the auto adapter to avoid a symlink `EPERM` error some users encounter during the final adapter output step. This does not affect `npm run dev` or `npm run preview`.
-
-You can force the Vercel adapter locally by setting `VERCEL=1` in the environment, but you may hit the Windows symlink limitation.
+The project uses `@sveltejs/adapter-node` to create a standalone Node.js server application upon build.
 
 ## Node.js runtime
 
@@ -17,7 +13,9 @@ You can force the Vercel adapter locally by setting `VERCEL=1` in the environmen
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and set at least one API key:
+Copy `.env.example` to `.env` for local development and set at least one API key.
+
+For production on DigitalOcean, define these in the App Spec (`.do/app.yaml`) or in the App Platform dashboard under Settings.
 
 ```
 OPENAI_API_KEY=
@@ -27,36 +25,41 @@ ELEVENLABS_API_KEY=
 GEMINI_API_KEY=
 ```
 
-On Vercel, define these in Project Settings → Environment Variables.
-
 ## Security considerations
 
 - CSRF: Implements a stateless double-submit cookie. Works on serverless—no shared state. Ensure HTTPS in production so the CSRF cookie is marked `secure`.
-- Rate limiting: Current implementation uses an in-memory Map for development only. For serverless or multi-instance, replace with Redis or another distributed store and remove in-memory state.
+- Rate limiting: Current implementation uses an in-memory Map for development only. For multi-instance deployments, this should be replaced with Redis or another distributed store.
 - Headers: Consider adding Content Security Policy (CSP) and security headers via a middleware or platform settings.
 
-## Vercel configuration
+## DigitalOcean App Platform Configuration
 
-The repo includes a `vercel.json` primarily for local consistency. SvelteKit’s adapter handles routing automatically.
+This repository is configured for deployment on the DigitalOcean App Platform using the `.do/app.yaml` specification file.
 
-Build commands:
+- **Build Command:** `npm run build`
+- **Start Command:** `npm start`
 
+The platform will automatically use these scripts to build and launch the application. The app will be served on the port defined by the `PORT` environment variable (defaults to 3000).
+
+To deploy:
+1. Create a new App on the DigitalOcean App Platform.
+2. Connect your GitHub account and select this repository.
+3. The App Platform will detect the `.do/app.yaml` file and use it for configuration.
+4. Fill in the required environment variables in the dashboard.
+5. Launch the app.
+
+## Local Development
+
+Run the development server:
 ```bash
 npm install
-npm run build
+npm run dev
 ```
 
-Preview locally:
-
+To run a production-like build locally:
 ```bash
-npm run preview
+npm run build
+npm run start
 ```
-
-## Troubleshooting
-
-- Windows build fails with symlink EPERM: This is why auto adapter is used locally. Use WSL or build on CI/Linux/macOS if you need a local Vercel build.
-- 500s due to missing API keys: Ensure at least one of the provider keys is set.
-- CSRF errors: Reload the page to refresh the token; the app uses double-submit cookie validation on each request.
 
 ## Next steps
 

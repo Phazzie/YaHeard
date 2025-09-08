@@ -1,0 +1,35 @@
+name: multi-ai-transcription-engine
+services:
+- name: web
+  github:
+    repo: "" # Should be in the format: your-github-username/your-repo-name
+    branch: main
+  build_command: npm run build
+  run_command: npm start
+  http_port: 3000
+  instance_size_slug: basic-xxs
+  instance_count: 1
+  routes:
+  - path: /
+  envs:
+  - key: OPENAI_API_KEY
+    value: ""
+    type: SECRET
+  - key: ASSEMBLYAI_API_KEY
+    value: ""
+    type: SECRET
+  - key: DEEPGRAM_API_KEY
+    value: ""
+    type: SECRET
+  - key: ELEVENLABS_API_KEY
+    value: ""
+    type: SECRET
+  - key: GEMINI_API_KEY
+    value: ""
+    type: SECRET
+  - key: NODE_ENV
+    value: "production"
+    type: GENERAL
+  - key: PORT
+    value: "3000"
+    type: GENERAL
