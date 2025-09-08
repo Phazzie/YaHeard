@@ -1,0 +1,11 @@
+{
+	"/": [
+		"src/routes/+page.server.ts"
+	],
+	"/api/merge-chunks": [
+		"src/routes/api/merge-chunks/+server.ts"
+	],
+	"/api/transcribe": [
+		"src/routes/api/transcribe/+server.ts"
+	]
+}
