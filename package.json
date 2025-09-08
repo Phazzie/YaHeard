@@ -21,6 +21,8 @@
     "@sveltejs/adapter-auto": "^3.0.0",
     "@sveltejs/kit": "2.4.3",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/svelte": "^5.2.8",
     "@types/node": "^20.19.13",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.16",

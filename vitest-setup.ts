@@ -1,2 +1,3 @@
 // This file is run before each test file.
-// You can use it to set up any global state or mocks.
+// It extends the 'expect' global with DOM-specific matchers from jest-dom.
+import '@testing-library/jest-dom/vitest';
