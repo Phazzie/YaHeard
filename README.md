@@ -164,18 +164,18 @@ interface AudioProcessor {
 - AI implementations: ✅ Active when corresponding API keys are present
 
 ## 🚀 Deployment
-Optimized for Vercel with the Vercel adapter. Notes:
+Optimized for DigitalOcean App Platform with the Node.js adapter. Notes:
 
 - Local builds on Windows may encounter a symlink EPERM error during the final adapter output step. Development (`npm run dev`) and preview (`npm run preview`) still work. For production builds, use WSL or CI/Linux/macOS runners.
 
 Adapter behavior
 - On Windows local builds, the project uses the auto adapter to avoid the symlink EPERM during build.
-- On CI/Vercel (when CI or VERCEL env is set), the Vercel adapter is used with maxDuration 300s.
-- To force the Vercel adapter locally, set the environment variable VERCEL=1 (may hit the Windows symlink limitation).
+- On CI/DigitalOcean (when CI or DO_APP_PLATFORM env is set), the Node.js adapter is used for DigitalOcean App Platform deployment.
+- To force the Node.js adapter locally, set the environment variable DO_APP_PLATFORM=1 (may hit the Windows symlink limitation).
 
 ```bash
 npm run build
-# Deploy to Vercel
+# Deploy to DigitalOcean App Platform using .do/app.yaml
 ```
 
 See `DEPLOYMENT.md` for comprehensive deployment guidance (adapters, Windows notes, environment variables).
