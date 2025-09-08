@@ -268,369 +268,151 @@
 <!-- @contract: Must render the main application UI -->
 <!-- @dependencies: State variables and event handlers -->
 
-<!-- Subtle Animated Background Particles -->
-<div class="particle-container">
-  {#each Array(12) as _, i}
-    <div 
-      class="particle" 
-      style="left: {Math.random() * 100}%; animation-delay: {Math.random() * 12}s; animation-duration: {12 + Math.random() * 6}s;"
-    ></div>
-  {/each}
-</div>
+<!-- Simplified Background -->
+<div class="fixed inset-0 bg-slate-900 -z-10"></div>
+<div class="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 opacity-50 -z-10"></div>
 
-<main class="min-h-screen relative cyber-grid-bg">
-  <!-- Clean Gradient Overlay -->
-  <div class="absolute inset-0 bg-gradient-to-br from-slate-900/40 via-blue-900/30 to-indigo-900/40"></div>
-  
-  <div class="relative z-10 max-w-6xl mx-auto px-4 py-12">
+<main class="min-h-screen relative">
+  <div class="relative z-10 max-w-5xl mx-auto px-4 py-12">
 
-    <!-- Header Section with Massive Glow Effects -->
-    <div class="text-center mb-16 animate-fade-in-up">
-      <h1 class="text-7xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan via-neon-pink to-neon-purple mb-6 animate-glow-pulse">
-        🎵 YaHeard 🎵
+    <!-- Simplified Header -->
+    <div class="text-center mb-12">
+      <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-4">
+        YaHeard
       </h1>
-      <h2 class="text-4xl lg:text-5xl font-bold text-glow-cyan mb-4 animate-neon-flicker">
-        Multi-AI Transcription Engine
-      </h2>
-      <p class="text-2xl text-white/90 drop-shadow-2xl animate-float max-w-3xl mx-auto leading-relaxed">
-        ✨ Upload audio files and get <span class="text-glow-pink font-bold">consensus transcriptions</span> from multiple AI services ✨
+      <p class="text-lg md:text-xl text-indigo-300 max-w-2xl mx-auto">
+        Upload an audio file to get a consensus transcription from multiple AI services.
       </p>
-      
-      <!-- Decorative Elements -->
-      <div class="flex justify-center space-x-8 mt-8">
-        <div class="w-4 h-4 bg-neon-cyan rounded-full animate-ping shadow-neon-cyan"></div>
-        <div class="w-4 h-4 bg-neon-pink rounded-full animate-ping shadow-neon-pink" style="animation-delay: 0.5s"></div>
-        <div class="w-4 h-4 bg-neon-purple rounded-full animate-ping shadow-neon-purple" style="animation-delay: 1s"></div>
-      </div>
-    </div>
-    
-    <!-- Debug Info (remove in production) -->
-        <!-- Debug Info - Always show for now to diagnose issue -->
-        <!-- Debug Info - Shows current state for troubleshooting -->
-    <div class="mb-4 p-4 bg-black/50 rounded text-sm text-white/70">
-      Debug: displayState = {displayState}, 
-      transcriptionResults.length = {transcriptionResults.length}, 
-      consensusResult = {consensusResult ? 'exists' : 'null'}, 
-      isProcessing = {isProcessingTranscription},
-      audioFile = {audioFileFromUser ? audioFileFromUser.name : 'none'}
     </div>
 
-    <!-- CLEAN STATE-DRIVEN UI DESIGN -->
-    
-    {#if displayState === 'upload'}
-      <!-- UPLOAD STATE: File selection and ready-to-process -->
-      <div class="space-y-8">
-        <!-- File Upload Section -->
-        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
-          <div class="flex items-center space-x-4 mb-8">
-            <div class="text-6xl animate-bounce-slow">🎤</div>
-            <div>
-              <h2 class="text-4xl font-bold text-glow-cyan mb-2">Upload Audio File</h2>
-              <p class="text-xl text-white/80">Drag & drop or click to select your audio masterpiece</p>
-            </div>
+    <!-- State-Driven UI -->
+    <div class="bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-lg p-6 md:p-10 border border-slate-700">
+      {#if displayState === 'upload'}
+        <!-- UPLOAD STATE -->
+        <div class="space-y-6">
+          <div>
+            <h2 class="text-2xl font-bold text-white mb-2">1. Upload Audio</h2>
+            <p class="text-slate-400">Select a file or paste a public URL.</p>
           </div>
 
-          <FileUpload
-            on:fileUploaded={handleFileUploaded}
-            disabled={isProcessingTranscription}
-          />
+          <FileUpload on:fileUploaded={handleFileUploaded} disabled={isProcessingTranscription} />
 
           {#if audioFileFromUser}
-            <div class="mt-8 p-6 glass-morphism rounded-2xl border-2 border-neon-green/50 shadow-neon-green animate-fade-in-up">
-              <div class="flex items-center space-x-4">
-                <div class="text-4xl animate-spin-slow">💾</div>
-                <div>
-                  <p class="text-2xl font-bold text-glow-green">✅ File Locked & Loaded!</p>
-                  <p class="text-lg text-green-300">
-                    📁 {audioFileFromUser.name} 
-                    <span class="text-neon-cyan">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </p>
-                </div>
-              </div>
+            <div class="mt-4 p-4 bg-green-900/30 rounded-lg border border-green-700 text-center">
+              <p class="font-semibold text-green-300">
+                ✅ Ready to process: {audioFileFromUser.name}
+              </p>
             </div>
           {/if}
 
-          <!-- Optional: URL override to bypass upload limits on hosting providers -->
-          <div class="mt-6 glass-morphism rounded-2xl p-6 border border-white/20">
-            <label class="block text-white/80 text-sm mb-2" for="audio-url">Or paste a public audio URL (bypasses upload size limits)</label>
+          <div class="text-center text-slate-500">OR</div>
+
+          <div>
+            <label class="block text-slate-400 text-sm mb-2" for="audio-url">
+              Paste a public audio URL
+            </label>
             <input
               id="audio-url"
               type="url"
-              placeholder="https://example.com/path/to/your-audio-file.mp3"
-              class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-neon-cyan"
+              placeholder="https://..."
+              class="w-full px-4 py-2 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               bind:value={audioUrlOverride}
             />
-            <p class="text-xs text-white/60 mt-2">Tip: Host the file on a public URL (S3, Dropbox direct link, etc.). We'll fetch it server-side. On serverless hosts (e.g., Vercel), uploads larger than ~4.5MB will fail—use this URL option for big files.</p>
+             <p class="text-xs text-slate-500 mt-2">Useful for files larger than 4.5MB on serverless platforms.</p>
           </div>
-        </div>
 
-        <!-- API Test Section -->
-        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 text-center">
-            <h3 class="text-2xl font-bold text-glow-purple mb-4">Diagnose API Connections</h3>
-            <button
-              on:click={runApiTests}
-              class="btn-cyber-secondary text-white font-bold py-3 px-6 rounded-lg text-lg"
-              disabled={isProcessingTranscription}
-            >
-              <span class="relative z-10">🧪 Test APIs</span>
-            </button>
-
-            {#if testApiResults}
-              <div class="mt-6 text-left space-y-2">
-                <h4 class="text-xl font-bold text-white/90">API Test Results:</h4>
-                <ul class="list-disc list-inside bg-black/30 p-4 rounded-lg">
-                  {#each testApiResults as result}
-                    <li class:text-green-400={result.success} class:text-red-400={!result.success}>
-                      <strong>{result.serviceName}:</strong>
-                      {#if result.success}
-                        ✅ Success
-                      {:else}
-                        ❌ Failed - {result.error}
-                      {/if}
-                    </li>
-                  {/each}
-                </ul>
-              </div>
-            {/if}
-        </div>
-
-        <!-- Ready to Process Section -->
-        {#if audioFileFromUser}
-          <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
-            <div class="text-center">
-              <div class="text-8xl mb-6 animate-float">🚀</div>
-              <h2 class="text-4xl font-bold text-glow-purple mb-6">Ready for Liftoff!</h2>
-              
+          {#if audioFileFromUser || audioUrlOverride}
+            <div class="text-center pt-4">
+               <h2 class="text-2xl font-bold text-white mb-2">2. Transcribe</h2>
               <button
                 on:click={startTranscriptionProcess}
-                class="btn-cyber text-white font-bold py-6 px-12 rounded-2xl text-2xl transform transition-all duration-300 shadow-2xl relative z-10"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-all duration-300 shadow-lg disabled:bg-slate-600 disabled:cursor-not-allowed"
                 disabled={isProcessingTranscription}
               >
-                <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
+                Start Processing
               </button>
-              
-              <p class="text-lg text-white/70 mt-4 animate-pulse">
-                Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
-              </p>
             </div>
-          </div>
-        {/if}
-      </div>
+          {/if}
+        </div>
 
-    {:else if displayState === 'processing'}
-      <!-- PROCESSING STATE: Progress and AI status -->
-      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-up">
-        <div class="text-center">
-          <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
-          <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Minds Collaborating...</h2>
-
+      {:else if displayState === 'processing'}
+        <!-- PROCESSING STATE -->
+        <div class="text-center py-10">
+          <div class="text-6xl mb-4 animate-spin">⚙️</div>
+          <h2 class="text-3xl font-bold text-white mb-4">Processing...</h2>
+          <p class="text-slate-400 mb-6">Uploading and transcribing your audio. Please wait.</p>
           <ProgressBar progress={uploadProgress} />
+        </div>
 
-          <div class="mt-8 space-y-4">
-            <p class="text-xl text-white/90">Processing your audio with 5 AI services...</p>
-            <div class="flex justify-center space-x-4 text-sm">
-              <span class="px-3 py-1 bg-blue-500/20 rounded-full animate-pulse">🤖 Whisper</span>
-              <span class="px-3 py-1 bg-green-500/20 rounded-full animate-pulse" style="animation-delay: 0.5s">🤖 AssemblyAI</span>
-              <span class="px-3 py-1 bg-purple-500/20 rounded-full animate-pulse" style="animation-delay: 1s">🤖 Deepgram</span>
-              <span class="px-3 py-1 bg-pink-500/20 rounded-full animate-pulse" style="animation-delay: 1.5s">🤖 Gemini</span>
-              <span class="px-3 py-1 bg-orange-500/20 rounded-full animate-pulse" style="animation-delay: 2s">🤖 ElevenLabs</span>
-            </div>
+      {:else if displayState === 'results'}
+        <!-- RESULTS STATE -->
+        <div>
+          <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-green-400 mb-2">Transcription Complete</h2>
+            <p class="text-slate-400">Review the consensus and individual AI results below.</p>
           </div>
-        </div>
-      </div>
 
-    {:else if displayState === 'results'}
-      <!-- RESULTS STATE: Clean transcription display -->
-      <div class="space-y-8 animate-slide-in-up">
-        <!-- Success Header -->
-        <div class="text-center">
-          <div class="text-8xl mb-4 animate-bounce-slow">🎯</div>
-          <h2 class="text-4xl font-bold text-glow-green mb-4">Transcription Complete!</h2>
-          <p class="text-xl text-white/80">
-            AI Consensus: <span class="text-glow-cyan font-bold">{Math.round((consensusResult?.consensusConfidence || 0) * 100)}%</span>
-          </p>
-        </div>
-
-        <!-- Main Results Display -->
-        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green">
           <ResultsDisplay results={transcriptionResults} consensus={consensusResult} />
-          
-          <!-- Action Buttons -->
-          <div class="flex justify-center space-x-6 mt-8">
+
+          <div class="flex justify-center space-x-4 mt-8">
             <button 
-              on:click={() => {
-                // Reload to obtain a fresh CSRF token for the next submission
-                window.location.reload();
-              }}
-              class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
+              on:click={() => window.location.reload()}
+              class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg transition"
             >
-              🔄 Process Another File
-            </button>
-            
-            <button 
-              on:click={() => {
-                const text = consensusResult?.finalText || '';
-                navigator.clipboard.writeText(text);
-              }}
-              class="btn-cyber-secondary text-white font-bold py-4 px-8 rounded-xl text-lg"
-            >
-              📋 Copy Text
+              Process Another File
             </button>
           </div>
         </div>
-      </div>
 
-    {:else if displayState === 'error'}
-      <!-- ERROR STATE: Clear error message and retry -->
-      <div class="glass-morphism neon-border rounded-3xl p-10 border-red-500 bg-red-500/10 animate-slide-in-up">
-        <div class="text-center space-y-6">
-          <div class="text-8xl animate-bounce">⚠️</div>
-          <div>
-            <h2 class="text-4xl font-bold text-red-400 mb-4">Processing Failed</h2>
-            <p class="text-xl text-red-300">{errorMessage}</p>
-          </div>
-          
+      {:else if displayState === 'error'}
+        <!-- ERROR STATE -->
+        <div class="text-center py-10">
+          <div class="text-6xl mb-4">⚠️</div>
+          <h2 class="text-3xl font-bold text-red-400 mb-2">An Error Occurred</h2>
+          <p class="text-red-300 bg-red-900/50 p-4 rounded-lg">{errorMessage}</p>
           <button 
             on:click={() => {
-              // Reset to upload state
               displayState = 'upload';
               errorMessage = '';
-              isProcessingTranscription = false;
+              audioFileFromUser = null;
+              audioUrlOverride = '';
             }}
-            class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
+            class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition"
           >
-            🔄 Try Again
+            Try Again
           </button>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Error Display with Neon Styling -->
-    {#if displayState === 'error' && errorMessage}
-      <div class="glass-morphism neon-border rounded-2xl p-6 mb-8 border-red-500 bg-red-500/10 animate-slide-in-left">
-        <div class="flex items-center space-x-3">
-          <div class="text-4xl animate-bounce">⚠️</div>
-          <div>
-            <strong class="text-red-400 text-xl">System Alert:</strong>
-            <p class="text-red-300 text-lg mt-1">{errorMessage}</p>
-          </div>
-        </div>
-      </div>
-    {/if}
-
-    <!-- File Upload Section - Only show in upload state -->
-    {#if displayState === 'upload'}
-    <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-cyan/50 transition-all duration-500 transform hover:scale-[1.02] animate-slide-in-left">
-      <div class="flex items-center space-x-4 mb-8">
-        <div class="text-6xl animate-bounce-slow">🎤</div>
-        <div>
-          <h2 class="text-4xl font-bold text-glow-cyan mb-2">Upload Audio File</h2>
-          <p class="text-xl text-white/80">Drag & drop or click to select your audio masterpiece</p>
-        </div>
-      </div>
-
-      <FileUpload
-        on:fileUploaded={handleFileUploaded}
-        disabled={isProcessingTranscription}
-      />
-
-      {#if audioFileFromUser}
-        <div class="mt-8 p-6 glass-morphism rounded-2xl border-2 border-neon-green/50 shadow-neon-green animate-fade-in-up">
-          <div class="flex items-center space-x-4">
-            <div class="text-4xl animate-spin-slow">💾</div>
-            <div>
-              <p class="text-2xl font-bold text-glow-green">
-                ✅ File Locked & Loaded!
-              </p>
-              <p class="text-lg text-green-300">
-                📁 {audioFileFromUser.name} 
-                <span class="text-neon-cyan">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
-              </p>
-            </div>
-          </div>
         </div>
       {/if}
     </div>
-    {/if} <!-- End of upload section -->
 
-    <!-- Ready to Process Section - Show when file uploaded but not processing -->
-    {#if audioFileFromUser && displayState === 'upload'}
-      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
-        <div class="text-center">
-          <div class="text-8xl mb-6 animate-float">🚀</div>
-          <h2 class="text-4xl font-bold text-glow-purple mb-6">Ready for Liftoff!</h2>
-          
-          <button
-            on:click={startTranscriptionProcess}
-            class="btn-cyber text-white font-bold py-6 px-12 rounded-2xl text-2xl transform transition-all duration-300 shadow-2xl relative z-10"
-            disabled={isProcessingTranscription}
-          >
-            <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
-          </button>
-          
-          <p class="text-lg text-white/70 mt-4 animate-pulse">
-            Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
-          </p>
-        </div>
-      </div>
-    {/if}
+    <!-- API Test Section -->
+    <div class="mt-8 bg-slate-800/50 backdrop-blur-md rounded-2xl shadow-lg p-6 md:p-8 border border-slate-700 text-center">
+        <h3 class="text-xl font-bold text-white mb-4">API Status</h3>
+        <button
+          on:click={runApiTests}
+          class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-slate-600 disabled:cursor-not-allowed"
+          disabled={isProcessingTranscription}
+        >
+         🧪 Test Connections
+        </button>
 
-    <!-- Processing Section - Only show when processing -->
-    {#if displayState === 'processing'}
-      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 mb-12 border-2 border-neon-yellow/50 shadow-neon-cyan animate-slide-in-left">
-        <div class="text-center">
-          <div class="text-8xl mb-6 animate-spin-slow">⚡</div>
-          <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Brains Working...</h2>
-
-          <ProgressBar progress={uploadProgress} />
-
-          <p class="text-lg text-white/60 mt-6 animate-pulse">
-            🤖 Whisper analyzing... 🤖 AssemblyAI thinking... 🤖 Multiple AI minds collaborating...
-          </p>
-        </div>
-      </div>
-    {/if}
-
-    <!-- Results Section with Spectacular Effects -->
-    {#if transcriptionResults.length > 0}
-      <!-- Results Page Header -->
-      <div class="text-center mb-12 animate-fade-in-up">
-        <div class="text-9xl mb-6 animate-bounce-slow">🎯</div>
-        <h1 class="text-6xl font-bold text-glow-green mb-4">AI Transcription Complete!</h1>
-        <p class="text-2xl text-white/80 mb-2">Multi-AI Consensus Analysis</p>
-        <p class="text-lg text-neon-cyan">
-          📁 {audioFileFromUser?.name || 'Audio File'} 
-          {#if audioFileFromUser}
-            <span class="text-white/60">({(audioFileFromUser.size / 1024 / 1024).toFixed(2)} MB)</span>
-          {/if}
-        </p>
-      </div>
-
-      <!-- Main Results Display -->
-      <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-neon-green/50 shadow-neon-green animate-slide-in-right">
-        <ResultsDisplay results={transcriptionResults} consensus={consensusResult} />
-        
-        <!-- Action Buttons -->
-        <div class="flex justify-center space-x-6 mt-8">
-          <button 
-            on:click={() => window.location.reload()}
-            class="btn-cyber text-white font-bold py-4 px-8 rounded-xl text-lg"
-          >
-            🔄 Process Another File
-          </button>
-          
-          <button 
-            on:click={() => {
-              const text = consensusResult?.finalText || '';
-              navigator.clipboard.writeText(text);
-            }}
-            class="btn-cyber-secondary text-white font-bold py-4 px-8 rounded-xl text-lg"
-          >
-            📋 Copy Text
-          </button>
-        </div>
-      </div>
-    {/if}
+        {#if testApiResults}
+          <div class="mt-4 text-left space-y-2 max-w-md mx-auto">
+            <ul class="list-disc list-inside bg-slate-900/50 p-4 rounded-lg">
+              {#each testApiResults as result}
+                <li class:text-green-400={result.success} class:text-red-400={!result.success}>
+                  <strong>{result.serviceName}:</strong>
+                  {#if result.success}
+                    ✅ Success
+                  {:else}
+                    ❌ Failed - {result.error}
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+    </div>
 
   </div>
 </main>

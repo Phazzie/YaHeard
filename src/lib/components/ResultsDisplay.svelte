@@ -264,10 +264,28 @@ let activeTab = 'overview';
   }
 
   function getConfidenceColor(confidence: number | undefined): string {
-    if (confidence === undefined) return 'text-gray-500';
-    if (confidence >= 0.9) return 'text-neon-green';
-    if (confidence >= 0.7) return 'text-neon-yellow';
-    return 'text-neon-pink';
+    if (confidence === undefined) return 'text-slate-400';
+    if (confidence >= 0.9) return 'text-green-400';
+    if (confidence >= 0.7) return 'text-yellow-400';
+    return 'text-red-400';
+  }
+
+  function getServiceIcon(serviceName: string): string {
+    if (serviceName.includes('Whisper')) return '🤫';
+    if (serviceName.includes('Assembly')) return '🏗️';
+    if (serviceName.includes('Deepgram')) return '🗣️';
+    if (serviceName.includes('Gemini')) return '💎';
+    if (serviceName.includes('ElevenLabs')) return '🧪';
+    return '🤖';
+  }
+
+  function downloadAllRaw() {
+    let allText = '';
+    for (const result of results) {
+      allText += `--- ${result.serviceName} ---\n`;
+      allText += `${result.text}\n\n`;
+    }
+    download('all_raw_transcriptions.txt', allText, 'text/plain');
   }
 
   // ========= REGENERATION BOUNDARY END: Helper Functions =========
@@ -279,264 +297,155 @@ let activeTab = 'overview';
 <!-- @dependencies: State variables and helper functions -->
 
 {#if hasResults}
-  <div class="space-y-8">
-
-    <!-- Spectacular Summary Statistics -->
-    <div class="glass-morphism holographic rounded-3xl p-8 border-2 border-neon-cyan/30 shadow-neon-cyan animate-fade-in-up">
-      <h3 class="text-3xl font-bold text-glow-cyan mb-6 text-center animate-neon-flicker">
-        🎯 Processing Summary
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="text-center glass-morphism rounded-2xl p-6 border border-neon-cyan/20">
-          <div class="text-5xl font-black text-glow-cyan animate-bounce-slow">{results.length}</div>
-          <div class="text-lg text-cyan-300 font-semibold mt-2">🤖 AI Services</div>
+  <div class="space-y-6">
+    <!-- Summary Statistics -->
+    <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+      <h3 class="text-lg font-bold text-white mb-4 text-center">Summary</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <div>
+          <div class="text-3xl font-bold text-indigo-400">{results.length}</div>
+          <div class="text-sm text-slate-400">AI Services</div>
         </div>
-        <div class="text-center glass-morphism rounded-2xl p-6 border border-neon-pink/20">
-          <div class="text-5xl font-black text-glow-pink animate-pulse">
-            {formatConfidence(averageConfidence)}
-          </div>
-          <div class="text-lg text-pink-300 font-semibold mt-2">🎯 Avg Confidence</div>
+        <div>
+          <div class="text-3xl font-bold text-indigo-400">{formatConfidence(averageConfidence)}</div>
+          <div class="text-sm text-slate-400">Avg. Confidence</div>
         </div>
-        <div class="text-center glass-morphism rounded-2xl p-6 border border-neon-purple/20">
-          <div class="text-5xl font-black text-glow-purple animate-float">{formatTime(totalProcessingTime)}</div>
-          <div class="text-lg text-purple-300 font-semibold mt-2">⚡ Processing Time</div>
+        <div>
+          <div class="text-3xl font-bold text-indigo-400">{formatTime(totalProcessingTime)}</div>
+          <div class="text-sm text-slate-400">Processing Time</div>
         </div>
       </div>
-
-      <!-- Per-service agreement overview -->
-      {#if agreementByService.length}
-        <div class="mt-8">
-          <h4 class="text-xl font-semibold text-white/90 mb-3">Per-service agreement with consensus</h4>
-          <div class="space-y-2">
-            {#each agreementByService as svc}
-              <div class="flex items-center gap-3">
-                <div class="w-32 text-white/80">{svc.serviceName}</div>
-                <div class="flex-1 h-3 bg-white/10 rounded">
-                  <div class="h-3 rounded bg-gradient-to-r from-neon-cyan to-neon-purple" style={`width: ${Math.round(svc.agreement*100)}%`}></div>
-                </div>
-                <div class="w-12 text-right text-white/70">{Math.round(svc.agreement*100)}%</div>
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
     </div>
 
-    <!-- Enhanced Tab Navigation with AI Insights -->
-    <div class="flex space-x-2 glass-morphism rounded-2xl p-2 border border-white/20">
-      <button 
-        class="flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300 {activeTab === 'overview' ? 'bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 text-glow-cyan border-2 border-neon-cyan/50 shadow-neon-cyan' : 'text-white/70 hover:text-white hover:bg-white/10'}" 
-        on:click={() => activeTab = 'overview'}
-      >
-        🌟 Overview
-      </button>
-      <button 
-        class="flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300 {activeTab === 'detailed' ? 'bg-gradient-to-r from-neon-pink/20 to-neon-purple/20 text-glow-pink border-2 border-neon-pink/50 shadow-neon-pink' : 'text-white/70 hover:text-white hover:bg-white/10'}" 
-        on:click={() => activeTab = 'detailed'}
-      >
-        🔍 Detailed
-      </button>
-      <button 
-        class="flex-1 py-4 px-6 rounded-xl text-lg font-bold transition-all duration-300 {activeTab === 'insights' ? 'bg-gradient-to-r from-neon-purple/20 to-neon-cyan/20 text-glow-purple border-2 border-neon-purple/50 shadow-neon-purple' : 'text-white/70 hover:text-white hover:bg-white/10'}" 
-        on:click={() => activeTab = 'insights'}
-      >
-        🧠 AI Insights
-      </button>
+  <!-- Tab Navigation -->
+    <div class="flex space-x-1 bg-slate-700/50 rounded-lg p-1 border border-slate-600">
+      {#each ['overview', 'detailed', 'raw', 'insights'] as tab}
+        <button
+          class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors capitalize"
+          class:bg-indigo-600={activeTab === tab}
+          class:text-white={activeTab === tab}
+          class:text-slate-300={activeTab !== tab}
+          class:hover:bg-slate-600={activeTab !== tab}
+          on:click={() => activeTab = tab}
+        >
+          {tab}
+        </button>
+      {/each}
     </div>
 
+    <div class="mt-6">
     {#if activeTab === "overview"}
-      <!-- Consensus Result with Spectacular Design -->
+      <!-- Consensus Result -->
       {#if consensus}
-        <div class="glass-morphism holographic rounded-3xl p-8 border-2 border-neon-green/50 shadow-neon-green animate-slide-in-left">
-          <div class="text-center mb-8">
-            <div class="text-8xl mb-4 animate-bounce-slow">🏆</div>
-            <h3 class="text-4xl font-bold text-glow-green animate-neon-flicker">Consensus Transcription</h3>
-          </div>
-          
-          <div class="glass-morphism rounded-2xl p-6 border border-white/20 bg-black/20">
-            <div class="flex items-center justify-between mb-3">
-              <div class="text-sm text-white/70 flex items-center gap-3">
-                <span class="inline-flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-green-600/60"></span> high confidence</span>
-                <span class="inline-flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-yellow-600/60"></span> medium</span>
-                <span class="inline-flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-pink-600/60"></span> low/contested</span>
+        <div class="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+          <h3 class="text-2xl font-bold text-white mb-4 text-center">Consensus Transcription</h3>
+
+          <div class="bg-slate-900/70 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3 text-xs text-slate-400">
+              <div>
+                <span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span> High
+                <span class="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-1 ml-2"></span> Med
+                <span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1 ml-2"></span> Low
               </div>
-              <label class="text-sm text-white/80 flex items-center gap-2">
-                <input type="checkbox" bind:checked={showHighlights} /> Show highlights
+              <label class="flex items-center gap-2">
+                <input type="checkbox" bind:checked={showHighlights} class="form-checkbox bg-slate-700 border-slate-600" /> Show highlights
               </label>
             </div>
             {#if showHighlights}
-              <p class="text-xl text-white leading-relaxed font-medium">
+              <p class="text-lg text-slate-200 leading-relaxed">
                 {#each highlightTokens as tok, idx}
                   {#if typeof trueTokenConfidence[idx] === 'number'}
-                    <span class={tokenClass(trueTokenConfidence[idx])} title={`token confidence ${(trueTokenConfidence[idx]*100).toFixed(0)}%${trueTokenConfidenceSources[idx] > 0 ? '' : ' (from agreement)'}`}>{tok}</span>{idx < highlightTokens.length - 1 ? ' ' : ''}
+                    <span class={tokenClass(trueTokenConfidence[idx])} title={`Confidence: ${(trueTokenConfidence[idx]*100).toFixed(0)}%`}>{tok}</span>{idx < highlightTokens.length - 1 ? ' ' : ''}
                   {:else}
                     <span>{tok}</span>{idx < highlightTokens.length - 1 ? ' ' : ''}
                   {/if}
                 {/each}
               </p>
             {:else}
-              <p class="text-xl text-white leading-relaxed font-medium">{consensus.finalText}</p>
+              <p class="text-lg text-slate-200 leading-relaxed">{consensus.finalText}</p>
             {/if}
           </div>
-          
-          <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="glass-morphism rounded-xl p-4 text-center border border-neon-green/30">
-              <div class="text-2xl font-bold text-glow-green">{formatConfidence(consensus.consensusConfidence)}</div>
-              <div class="text-green-300">Confidence</div>
-            </div>
-            <div class="glass-morphism rounded-xl p-4 text-center border border-neon-cyan/30">
-              <div class="text-2xl font-bold text-glow-cyan">{consensus.stats.servicesUsed}</div>
-              <div class="text-cyan-300">Services</div>
-            </div>
-            <div class="glass-morphism rounded-xl p-4 text-center border border-neon-pink/30">
-              <div class="text-2xl font-bold text-glow-pink">{consensus.stats.disagreementCount}</div>
-              <div class="text-pink-300">Disagreements</div>
-            </div>
-          </div>
-
-          <!-- Contested terms -->
-          {#if contestedTokens.length}
-            <div class="mt-6">
-              <h4 class="text-lg font-semibold text-white/90 mb-2">Most contested terms</h4>
-              <div class="flex flex-wrap gap-2">
-                {#each contestedTokens as ct}
-                  <span class="px-2 py-1 rounded bg-pink-700/30 text-white/90 text-sm">{ct.token} <span class="text-white/60">({Math.round((ct.score||0)*100)}%)</span></span>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          <!-- Raw JSON toggle -->
-          <div class="mt-6">
-            <label class="text-sm text-white/80 flex items-center gap-2">
-              <input type="checkbox" bind:checked={showRawJson} /> Show raw JSON
-            </label>
-            {#if showRawJson}
-              <pre class="mt-2 p-3 bg-black/70 rounded text-white/80 text-xs overflow-auto max-h-64">{JSON.stringify(exportPayload(), null, 2)}</pre>
-            {/if}
-          </div>
-        </div>
-      {:else}
-        <div class="text-center py-16 glass-morphism rounded-3xl border-2 border-white/20 animate-fade-in-up">
-          <div class="text-8xl mb-6 animate-float">🔮</div>
-          <h3 class="text-3xl font-bold text-glow-purple mb-4 animate-neon-flicker">
-            Building Consensus...
-          </h3>
-          <p class="text-xl text-white/80">
-            AI services are analyzing and comparing results ✨
-          </p>
         </div>
       {/if}
     {/if}
 
     {#if activeTab === "detailed"}
-      <!-- Individual Results with Cyber Styling -->
-      <div class="space-y-6">
-        <h3 class="text-3xl font-bold text-glow-cyan text-center animate-neon-flicker">
-          🤖 Individual AI Results
-        </h3>
-
-        {#each results as result, index (result.id)}
-          <div class="glass-morphism holographic rounded-3xl p-8 border-2 border-white/20 hover:border-neon-cyan/50 shadow-xl hover:shadow-neon-cyan transition-all duration-500 animate-fade-in-up" style="animation-delay: {index * 0.2}s;">
-            <div class="flex items-center justify-between mb-6">
-              <div class="flex items-center space-x-4">
-                <div class="text-4xl">
-                  {#if result.error}
-                    <span>⚠️</span>
-                  {:else if result.serviceName.includes('Whisper')}
-                    <span>🎧</span>
-                  {:else if result.serviceName.includes('Assembly')}
-                    <span>🧠</span>
-                  {:else}
-                    <span>⚡</span>
-                  {/if}
-                </div>
-                <h4 class="text-2xl font-bold text-glow-cyan">{result.serviceName}</h4>
+      <!-- Individual Results -->
+      <div class="space-y-4">
+        <h3 class="text-2xl font-bold text-white mb-4 text-center">Individual AI Results</h3>
+        {#each results as result (result.id)}
+          <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center space-x-3">
+                <div class="text-2xl">{getServiceIcon(result.serviceName)}</div>
+                <h4 class="text-lg font-bold text-indigo-300">{result.serviceName}</h4>
               </div>
-
               {#if result.error}
-                <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-red/50 bg-red-900/50">
-                    <span class="text-lg font-bold text-red-400">Failed</span>
-                </div>
+                <div class="px-2 py-1 text-xs rounded-full bg-red-900/50 text-red-400">Failed</div>
               {:else}
-                <div class="flex items-center space-x-4">
-                  <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-green/30">
-                    <span class="text-lg font-bold {getConfidenceColor(result.confidence)}">
-                      {formatConfidence(result.confidence)}
-                    </span>
-                  </div>
-                  <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-purple/30">
-                    <span class="text-lg font-bold text-glow-purple">
-                      {formatTime(result.processingTimeMs)}
-                    </span>
-                  </div>
+                <div class="flex items-center space-x-4 text-sm">
+                  <span class="font-medium {getConfidenceColor(result.confidence)}">
+                    {formatConfidence(result.confidence)}
+                  </span>
+                  <span class="text-slate-400">{formatTime(result.processingTimeMs)}</span>
                 </div>
               {/if}
             </div>
-
-            <div class="glass-morphism rounded-2xl p-6 border border-white/20 bg-black/30">
+            <div class="bg-slate-900/70 rounded-lg p-4 text-slate-200">
               {#if result.error}
-                <p class="text-xl text-red-400 leading-relaxed font-mono">{result.error}</p>
+                <p class="font-mono text-sm text-red-400">{result.error}</p>
               {:else}
-                <p class="text-xl text-white leading-relaxed">{result.text}</p>
+                <p>{result.text}</p>
               {/if}
             </div>
-
-            {#if !result.error}
-              <div class="mt-4 flex flex-col gap-2">
-                <div class="glass-morphism rounded-xl p-3 border border-white/10">
-                  <p class="text-sm text-neon-yellow">
-                    🔧 Model: <span class="font-mono text-white">{result.metadata?.model || 'Unknown'}</span>
-                  </p>
-                </div>
-                <div class="glass-morphism rounded-xl p-3 border border-white/10">
-                  <div class="text-xs text-white/70 mb-1">Processing time</div>
-                  <div class="h-2 bg-white/10 rounded">
-                    <div class="h-2 rounded bg-gradient-to-r from-neon-cyan to-neon-purple" style={`width: ${maxProcessingMs ? Math.round((result.processingTimeMs/maxProcessingMs)*100) : 0}%`}></div>
-                  </div>
-                </div>
-              </div>
-            {/if}
           </div>
         {/each}
       </div>
+    {/if}
 
-      <!-- Enhanced Export Options -->
-      <div class="glass-morphism holographic rounded-3xl p-8 border-2 border-neon-purple/30 shadow-neon-purple animate-slide-in-right">
-        <h3 class="text-3xl font-bold text-glow-purple mb-6 text-center animate-neon-flicker">
-          💾 Export Your Results
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button class="btn-cyber text-white px-8 py-4 rounded-2xl text-lg font-bold relative overflow-hidden group" on:click={downloadText}>
-            <span class="relative z-10">📄 Download Text</span>
-          </button>
-          <button class="btn-cyber text-white px-8 py-4 rounded-2xl text-lg font-bold relative overflow-hidden group" on:click={downloadJson}>
-            <span class="relative z-10">📊 Download JSON</span>
-          </button>
-          <button class="btn-cyber text-white px-8 py-4 rounded-2xl text-lg font-bold relative overflow-hidden group" on:click={copyResults}>
-            <span class="relative z-10">📋 Copy Results</span>
-          </button>
+    {#if activeTab === "raw"}
+      <div class="space-y-4">
+        <h3 class="text-2xl font-bold text-white mb-4 text-center">Raw Transcriptions</h3>
+        <div class="bg-slate-900/70 rounded-lg p-4 font-mono text-sm text-slate-300 whitespace-pre-wrap">
+          {#each results as result}
+<span class="font-bold text-indigo-400">--- {result.serviceName} ---</span>
+{result.text}
+
+          {/each}
         </div>
       </div>
     {/if}
 
     {#if activeTab === "insights"}
-      <!-- AI Insights and Thought Process -->
+      <!-- AI Insights -->
       <div class="ai-insights">
         <AIInsights reasoning={consensus?.reasoning || null} />
       </div>
     {/if}
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="mt-8 pt-6 border-t border-slate-700 flex justify-center flex-wrap gap-4">
+      <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition" on:click={downloadText}>
+        📄 Download Consensus
+      </button>
+      <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition" on:click={downloadJson}>
+        📊 Download JSON
+      </button>
+       <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition" on:click={downloadAllRaw}>
+        📝 Download All Raw
+      </button>
+      <button class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition" on:click={copyResults}>
+        📋 Copy JSON
+      </button>
+    </div>
 
   </div>
 {:else}
-  <div class="text-center py-16 glass-morphism rounded-3xl border-2 border-white/20 animate-fade-in-up">
-    <div class="text-8xl mb-6 animate-float">🎵</div>
-    <h3 class="text-3xl font-bold text-glow-cyan mb-4 animate-neon-flicker">
-      Ready for Audio Magic
-    </h3>
-    <p class="text-xl text-white/80">
-      Upload an audio file above to see the AI transcription results here ✨
-    </p>
+  <div class="text-center py-16">
+    <div class="text-5xl mb-4">🎵</div>
+    <h3 class="text-2xl font-bold text-white mb-2">Ready for Audio</h3>
+    <p class="text-slate-400">Upload an audio file to begin.</p>
   </div>
 {/if}
 

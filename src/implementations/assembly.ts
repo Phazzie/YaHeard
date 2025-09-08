@@ -2,6 +2,9 @@ import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '.
 
 const UPLOAD_ENDPOINT = 'https://api.assemblyai.com/v2/upload';
 const TRANSCRIPT_ENDPOINT = 'https://api.assemblyai.com/v2/transcript';
+const LEMUR_ENDPOINT = 'https://api.assemblyai.com/lemur/v3/generate/task';
+
+const LEMUR_PROMPT = "Review the provided transcript. Your primary task is to enhance it by identifying and clarifying any ambiguities. Where a word or phrase is unclear, provide the most likely word followed by potential alternatives in brackets. For instance, if the audio is indistinct, transform a phrase like 'The quick brown fox' to 'The quick [brown/round] fox.' If a word is completely unintelligible, represent it with a question mark in brackets, like '[?]'. Additionally, make an effort to distinguish between different speakers by labeling their dialogue, for example, with '[SPEAKER A]' and '[SPEAKER B]'. Your final output should be the enhanced, corrected, and speaker-diarized transcript.";
 
 // Helper methods specific to this implementation, kept outside the main object
 async function uploadFile(audio: Buffer, apiKey: string): Promise<string> {
@@ -67,6 +70,29 @@ async function pollForResult(transcriptId: string, apiKey: string): Promise<any>
   throw new Error('Transcription polling timed out after 30 seconds.');
 }
 
+async function lemurEnhance(transcriptId: string, apiKey: string): Promise<string> {
+    const response = await fetch(LEMUR_ENDPOINT, {
+        method: 'POST',
+        headers: {
+            'authorization': apiKey,
+            'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+            transcript_ids: [transcriptId],
+            prompt: LEMUR_PROMPT,
+            final_model: 'assemblyai/mistral-7b-instruct-v0.3', // Use a default model
+        })
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`LeMUR enhancement failed with status ${response.status}: ${errorBody}`);
+    }
+
+    const result = await response.json();
+    return result.response[0].response;
+}
+
 
 /**
  * Implements the TranscriptionService interface for AssemblyAI.
@@ -94,20 +120,24 @@ export const assemblyAiProcessor: TranscriptionService = {
       // Step 3: Poll for the transcription result.
       const result = await pollForResult(transcriptId, apiKey);
 
+      // Step 4: Enhance the transcript with LeMUR
+      const enhancedText = await lemurEnhance(transcriptId, apiKey);
+
       const processingTime = Date.now() - startTime;
 
       return {
         id: `assembly-${Date.now()}`,
         serviceName: this.serviceName,
-        text: result.text,
+        text: enhancedText, // Use the LeMUR enhanced text
         confidence: result.confidence,
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
-          model: 'assembly-ai-best',
+          model: 'assembly-ai-best + LeMUR',
           language: result.language_code,
           wordCount: result.words.length,
-          rawResponse: result
+          rawResponse: result,
+          lemurResponse: enhancedText
         }
       };
     } catch (error) {

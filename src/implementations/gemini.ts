@@ -1,7 +1,7 @@
 import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '../contracts/transcription';
 
 const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const TRANSCRIPTION_PROMPT = "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting.";
+const TRANSCRIPTION_PROMPT = "Transcribe the audio. Where words are unclear, provide the most likely word followed by alternatives in brackets. For example: 'The quick [brown/round] fox.' If you are very unsure, use a question mark in brackets. For example: '[?]'. Also, attempt to identify and label different speakers, for example: '[SPEAKER A]', '[SPEAKER B]'.";
 
 /**
  * Implements the TranscriptionService interface for Google's Gemini model.

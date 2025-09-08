@@ -24,6 +24,9 @@ export const whisperProcessor: TranscriptionService = {
       const model = 'whisper-1';
       formData.append('model', model);
 
+      const prompt = "The following is a transcript of an audio file. If there are any words that are unclear, please use your best guess and surround them with brackets. For example: 'I think the answer is [four/for]'. If you are very unsure, use a question mark in brackets. For example: '[?]'. Please also try to identify and label different speakers, for example: '[SPEAKER A]', '[SPEAKER B]'.";
+      formData.append('prompt', prompt);
+
       const startTime = Date.now();
 
       const response = await fetch(`${API_BASE}/audio/transcriptions`, {
