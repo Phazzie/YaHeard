@@ -1,44 +1,35 @@
-import type { AudioProcessor, WhisperConfig } from '../contracts/processors';
-import type { TranscriptionResult } from '../contracts/transcription';
+import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '../contracts/transcription';
+
+const API_BASE = 'https://api.openai.com/v1';
 
 /**
- * Implements the AudioProcessor interface for OpenAI's Whisper model.
+ * Implements the TranscriptionService interface for OpenAI's Whisper model.
  */
-export class WhisperProcessor implements AudioProcessor {
-  readonly serviceName = 'Whisper';
-  private config: WhisperConfig;
-  private readonly API_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
+export const whisperProcessor: TranscriptionService = {
+  serviceName: 'Whisper (OpenAI)',
 
-  constructor(config: WhisperConfig = {}) {
-    this.config = config;
-  }
+  isConfigured: !!process.env.OPENAI_API_KEY,
 
-  async isAvailable(): Promise<boolean> {
-    return !!this.config.apiKey;
-  }
-
-  async processFile(file: File): Promise<TranscriptionResult> {
-    if (!this.config.apiKey) {
+  async process(audio: Buffer): Promise<TranscriptionResult> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       throw new Error('Whisper API key not configured.');
     }
 
     try {
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      const audioBlob = new Blob([audio]);
+      formData.append('file', audioBlob, 'audio.mp3');
 
-      const model = this.config.options?.model || 'whisper-1';
-      const language = this.config.options?.language;
+      const model = 'whisper-1';
       formData.append('model', model);
-      if (language) {
-        formData.append('language', language);
-      }
 
       const startTime = Date.now();
 
-      const response = await fetch(this.API_ENDPOINT, {
+      const response = await fetch(`${API_BASE}/audio/transcriptions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.config.apiKey}`
+          'Authorization': `Bearer ${apiKey}`
         },
         body: formData
       });
@@ -69,15 +60,33 @@ export class WhisperProcessor implements AudioProcessor {
       console.error(`Whisper processor error: ${errorMessage}`);
       throw new Error(`Whisper processor failed: ${errorMessage}`);
     }
-  }
+  },
 
-  async getCostPerMinute(): Promise<number> {
-    // OpenAI Whisper pricing as of late 2024.
-    return 0.006;
-  }
+  async testConnection(): Promise<ApiTestResult> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return { serviceName: this.serviceName, success: false, error: 'API key not configured.' };
+    }
 
-  getSupportedFormats(): string[] {
-    // Based on OpenAI Whisper API documentation.
-    return ['.mp3', '.wav', '.m4a', '.webm', '.flac', '.ogg'];
+    try {
+      const response = await fetch(`${API_BASE}/models`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      });
+
+      if (response.ok) {
+        return { serviceName: this.serviceName, success: true };
+      } else {
+        return {
+          serviceName: this.serviceName,
+          success: false,
+          error: `API returned status ${response.status}`,
+          details: { statusCode: response.status }
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+      return { serviceName: this.serviceName, success: false, error: errorMessage };
+    }
   }
-}
+};

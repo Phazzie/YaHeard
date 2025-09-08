@@ -1,45 +1,38 @@
-import type { AudioProcessor, DeepgramConfig } from '../contracts/processors';
-import type { TranscriptionResult } from '../contracts/transcription';
+import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '../contracts/transcription';
 
 const API_ENDPOINT = 'https://api.deepgram.com/v1/listen';
+const AUTH_TEST_ENDPOINT = 'https://api.deepgram.com/v1/auth/token';
 
 /**
- * Implements the AudioProcessor interface for Deepgram.
+ * Implements the TranscriptionService interface for Deepgram.
  */
-export class DeepgramProcessor implements AudioProcessor {
-  readonly serviceName = 'Deepgram';
-  private config: DeepgramConfig;
+export const deepgramProcessor: TranscriptionService = {
+  serviceName: 'Deepgram',
 
-  constructor(config: DeepgramConfig = {}) {
-    this.config = config;
-  }
+  isConfigured: !!process.env.DEEPGRAM_API_KEY,
 
-  async isAvailable(): Promise<boolean> {
-    return !!this.config.apiKey;
-  }
-
-  async processFile(file: File): Promise<TranscriptionResult> {
-    if (!this.config.apiKey) {
+  async process(audio: Buffer): Promise<TranscriptionResult> {
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
       throw new Error('Deepgram API key not configured.');
     }
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const base64Audio = this.arrayBufferToBase64(arrayBuffer);
+      const base64Audio = audio.toString('base64');
       const startTime = Date.now();
 
       const options = {
-        model: this.config.options?.model || 'nova-2',
-        smart_format: this.config.options?.smart_format ?? true,
-        punctuate: this.config.options?.punctuate ?? true,
-        utterances: this.config.options?.utterances ?? true,
-        language: this.config.options?.language || 'en-US'
+        model: 'nova-2',
+        smart_format: true,
+        punctuate: true,
+        utterances: true,
+        language: 'en-US'
       };
 
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: {
-          'Authorization': `Token ${this.config.apiKey}`,
+          'Authorization': `Token ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -76,21 +69,34 @@ export class DeepgramProcessor implements AudioProcessor {
       console.error(`Deepgram processor error: ${errorMessage}`);
       throw new Error(`Deepgram processor failed: ${errorMessage}`);
     }
-  }
+  },
 
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    // Server-side base64 conversion using Buffer (Node.js) - more efficient than btoa()
-    const nodeBuffer = Buffer.from(buffer);
-    return nodeBuffer.toString('base64');
-  }
+  async testConnection(): Promise<ApiTestResult> {
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      return { serviceName: this.serviceName, success: false, error: 'API key not configured.' };
+    }
 
-  async getCostPerMinute(): Promise<number> {
-    // Deepgram pricing as of late 2024.
-    return 0.0043;
-  }
+    try {
+      // Deepgram docs suggest hitting this endpoint to validate a key.
+      const response = await fetch(AUTH_TEST_ENDPOINT, {
+        method: 'GET',
+        headers: { 'Authorization': `Token ${apiKey}` }
+      });
 
-  getSupportedFormats(): string[] {
-    // Based on Deepgram API documentation.
-    return ['.mp3', '.wav', '.m4a', '.webm', '.flac', '.ogg', '.aac', '.wma'];
+      if (response.ok) {
+        return { serviceName: this.serviceName, success: true };
+      } else {
+        return {
+          serviceName: this.serviceName,
+          success: false,
+          error: `API returned status ${response.status}`,
+          details: { statusCode: response.status }
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+      return { serviceName: this.serviceName, success: false, error: errorMessage };
+    }
   }
-}
+};

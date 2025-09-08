@@ -436,69 +436,67 @@ let activeTab = 'overview';
           🤖 Individual AI Results
         </h3>
 
-        <div class="flex items-center justify-center gap-6 mb-4 text-white/80 text-sm">
-          <label class="flex items-center gap-2"><input type="checkbox" bind:checked={showServiceHighlights} /> Highlight tokens that align with consensus</label>
-          <label class="flex items-center gap-2"><input type="checkbox" bind:checked={hideContestedInService} /> Hide contested tokens</label>
-        </div>
-
         {#each results as result, index (result.id)}
           <div class="glass-morphism holographic rounded-3xl p-8 border-2 border-white/20 hover:border-neon-cyan/50 shadow-xl hover:shadow-neon-cyan transition-all duration-500 animate-fade-in-up" style="animation-delay: {index * 0.2}s;">
             <div class="flex items-center justify-between mb-6">
               <div class="flex items-center space-x-4">
-                <div class="text-4xl animate-spin-slow">
-                  {result.serviceName === 'Whisper' ? '🎧' : result.serviceName === 'AssemblyAI' ? '🧠' : '⚡'}
+                <div class="text-4xl">
+                  {#if result.error}
+                    <span>⚠️</span>
+                  {:else if result.serviceName.includes('Whisper')}
+                    <span>🎧</span>
+                  {:else if result.serviceName.includes('Assembly')}
+                    <span>🧠</span>
+                  {:else}
+                    <span>⚡</span>
+                  {/if}
                 </div>
                 <h4 class="text-2xl font-bold text-glow-cyan">{result.serviceName}</h4>
               </div>
-              <div class="flex items-center space-x-4">
-                <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-green/30">
-                  <span class="text-lg font-bold {getConfidenceColor(result.confidence)}">
-                    {formatConfidence(result.confidence)}
-                  </span>
+
+              {#if result.error}
+                <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-red/50 bg-red-900/50">
+                    <span class="text-lg font-bold text-red-400">Failed</span>
                 </div>
-                <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-purple/30">
-                  <span class="text-lg font-bold text-glow-purple">
-                    {formatTime(result.processingTimeMs)}
-                  </span>
+              {:else}
+                <div class="flex items-center space-x-4">
+                  <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-green/30">
+                    <span class="text-lg font-bold {getConfidenceColor(result.confidence)}">
+                      {formatConfidence(result.confidence)}
+                    </span>
+                  </div>
+                  <div class="glass-morphism rounded-xl px-4 py-2 border border-neon-purple/30">
+                    <span class="text-lg font-bold text-glow-purple">
+                      {formatTime(result.processingTimeMs)}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              {/if}
             </div>
 
             <div class="glass-morphism rounded-2xl p-6 border border-white/20 bg-black/30">
-              {#if showServiceHighlights}
-                <p class="text-xl text-white leading-relaxed">
-                  {#each (result.text.split(/\s+/)) as t, j}
-                    {#if hideContestedInService}
-                      {#if serviceTokenMatches(t, j, (perServiceTokens[results.findIndex(rr => rr.id===result.id)]||[]))}
-                        <span class="bg-green-600/20">{t}</span>{' '}
-                      {/if}
-                    {:else}
-                      {#if serviceTokenMatches(t, j, (perServiceTokens[results.findIndex(rr => rr.id===result.id)]||[]))}
-                        <span class="bg-green-600/20">{t}</span>{' '}
-                      {:else}
-                        <span class="bg-pink-700/20">{t}</span>{' '}
-                      {/if}
-                    {/if}
-                  {/each}
-                </p>
+              {#if result.error}
+                <p class="text-xl text-red-400 leading-relaxed font-mono">{result.error}</p>
               {:else}
                 <p class="text-xl text-white leading-relaxed">{result.text}</p>
               {/if}
             </div>
 
-            <div class="mt-4 flex flex-col gap-2">
-              <div class="glass-morphism rounded-xl p-3 border border-white/10">
-                <p class="text-sm text-neon-yellow">
-                  🔧 Model: <span class="font-mono text-white">{result.metadata?.model || 'Unknown'}</span>
-                </p>
-              </div>
-              <div class="glass-morphism rounded-xl p-3 border border-white/10">
-                <div class="text-xs text-white/70 mb-1">Processing time</div>
-                <div class="h-2 bg-white/10 rounded">
-                  <div class="h-2 rounded bg-gradient-to-r from-neon-cyan to-neon-purple" style={`width: ${maxProcessingMs ? Math.round((result.processingTimeMs/maxProcessingMs)*100) : 0}%`}></div>
+            {#if !result.error}
+              <div class="mt-4 flex flex-col gap-2">
+                <div class="glass-morphism rounded-xl p-3 border border-white/10">
+                  <p class="text-sm text-neon-yellow">
+                    🔧 Model: <span class="font-mono text-white">{result.metadata?.model || 'Unknown'}</span>
+                  </p>
+                </div>
+                <div class="glass-morphism rounded-xl p-3 border border-white/10">
+                  <div class="text-xs text-white/70 mb-1">Processing time</div>
+                  <div class="h-2 bg-white/10 rounded">
+                    <div class="h-2 rounded bg-gradient-to-r from-neon-cyan to-neon-purple" style={`width: ${maxProcessingMs ? Math.round((result.processingTimeMs/maxProcessingMs)*100) : 0}%`}></div>
+                  </div>
                 </div>
               </div>
-            </div>
+            {/if}
           </div>
         {/each}
       </div>

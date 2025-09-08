@@ -1,45 +1,37 @@
-import type { AudioProcessor, ElevenLabsConfig } from '../contracts/processors';
-import type { TranscriptionResult } from '../contracts/transcription';
+import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '../contracts/transcription';
 
 const API_ENDPOINT = 'https://api.elevenlabs.io/v1/speech-to-text';
+const USER_INFO_ENDPOINT = 'https://api.elevenlabs.io/v1/user';
 
 /**
- * Implements the AudioProcessor interface for ElevenLabs.
+ * Implements the TranscriptionService interface for ElevenLabs.
  */
-export class ElevenLabsProcessor implements AudioProcessor {
-  readonly serviceName = 'ElevenLabs';
-  private config: ElevenLabsConfig;
+export const elevenLabsProcessor: TranscriptionService = {
+  serviceName: 'ElevenLabs',
 
-  constructor(config: ElevenLabsConfig = {}) {
-    this.config = config;
-  }
+  isConfigured: !!process.env.ELEVENLABS_API_KEY,
 
-  async isAvailable(): Promise<boolean> {
-    return !!this.config.apiKey;
-  }
-
-  async processFile(file: File): Promise<TranscriptionResult> {
-    if (!this.config.apiKey) {
+  async process(audio: Buffer): Promise<TranscriptionResult> {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
       throw new Error('ElevenLabs API key not configured.');
     }
 
     try {
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      // ElevenLabs API expects a file, so we create a Blob from the buffer.
+      const audioBlob = new Blob([audio]);
+      formData.append('file', audioBlob, 'audio.mp3'); // Filename is arbitrary but required
 
-      const model = this.config.options?.model || 'scribe_v1';
-      const language = this.config.options?.language;
+      const model = 'scribe_v1';
       formData.append('model_id', model);
-      if (language) {
-        formData.append('language_code', language);
-      }
 
       const startTime = Date.now();
 
       const response = await fetch(API_ENDPOINT, {
         method: 'POST',
         headers: {
-          'xi-api-key': this.config.apiKey
+          'xi-api-key': apiKey
         },
         body: formData
       });
@@ -71,15 +63,33 @@ export class ElevenLabsProcessor implements AudioProcessor {
       console.error(`ElevenLabs processor error: ${errorMessage}`);
       throw new Error(`ElevenLabs processor failed: ${errorMessage}`);
     }
-  }
+  },
 
-  async getCostPerMinute(): Promise<number> {
-    // ElevenLabs pricing as of late 2024.
-    return 0.002;
-  }
+  async testConnection(): Promise<ApiTestResult> {
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return { serviceName: this.serviceName, success: false, error: 'API key not configured.' };
+    }
 
-  getSupportedFormats(): string[] {
-    // Based on ElevenLabs API documentation.
-    return ['.mp3', '.wav', '.m4a', '.webm', '.flac', '.ogg', '.aac'];
+    try {
+      const response = await fetch(USER_INFO_ENDPOINT, {
+        method: 'GET',
+        headers: { 'xi-api-key': apiKey }
+      });
+
+      if (response.ok) {
+        return { serviceName: this.serviceName, success: true };
+      } else {
+        return {
+          serviceName: this.serviceName,
+          success: false,
+          error: `API returned status ${response.status}`,
+          details: { statusCode: response.status }
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+      return { serviceName: this.serviceName, success: false, error: errorMessage };
+    }
   }
-}
+};

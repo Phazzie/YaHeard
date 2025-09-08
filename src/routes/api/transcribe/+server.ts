@@ -1,13 +1,13 @@
 import { PERFORMANCE_CONFIG } from '$lib/config';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { checkRateLimit, getClientIP, validateCsrfFromForm } from '$lib/security';
-import type { AudioProcessor, TranscriptionResult } from '../../../contracts/processors';
-import { AssemblyAIProcessor } from '../../../implementations/assembly';
+import type { TranscriptionService, TranscriptionResult } from '../../../contracts/transcription';
+import { assemblyAiProcessor } from '../../../implementations/assembly';
 import { ConsensusComparisonEngine } from '../../../implementations/comparison';
-import { DeepgramProcessor } from '../../../implementations/deepgram';
-import { ElevenLabsProcessor } from '../../../implementations/elevenlabs';
-import { GeminiProcessor } from '../../../implementations/gemini';
-import { WhisperProcessor } from '../../../implementations/whisper';
+import { deepgramProcessor } from '../../../implementations/deepgram';
+import { elevenLabsProcessor } from '../../../implementations/elevenlabs';
+import { geminiProcessor } from '../../../implementations/gemini';
+import { whisperProcessor } from '../../../implementations/whisper';
 
 // Reusable comparison engine instance (stateless)
 const comparisonEngine = new ConsensusComparisonEngine();
@@ -49,32 +49,27 @@ export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
       );
     }
 
-    const audioFile = formData.get('audio') as File | null;
     const audioUrl = (formData.get('audioUrl') as string | null)?.trim() || '';
-    let fileForProcessing: File | null = null;
+    if (!audioUrl) {
+      return json({ error: 'No audio URL provided.' }, { status: 400 });
+    }
 
-    if (audioFile) {
-      fileForProcessing = audioFile;
-    } else if (audioUrl) {
-      // Server-side fetch of the remote audio to bypass client upload limits
-      try {
-        const resp = await fetch(audioUrl);
-        if (!resp.ok) {
-          return json({ error: `Failed to fetch audio from URL (${resp.status})` }, { status: 400 });
-        }
-        const contentType = resp.headers.get('content-type') || 'application/octet-stream';
-        const arrayBuf = await resp.arrayBuffer();
-        const sizeBytes = arrayBuf.byteLength;
-        if (sizeBytes > PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES) {
-          return json({ error: `Remote file too large: ${(sizeBytes/1024/1024).toFixed(1)}MB (max ${(PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES/1024/1024).toFixed(1)}MB)` }, { status: 400 });
-        }
-        // Construct a File (Web File is available in the runtime)
-        fileForProcessing = new File([new Uint8Array(arrayBuf)], 'remote-audio', { type: contentType });
-      } catch (e) {
-        return json({ error: `Could not download audio from URL: ${e instanceof Error ? e.message : 'Unknown error'}` }, { status: 400 });
+    let audioBuffer: Buffer;
+
+    // Server-side fetch of the remote audio
+    try {
+      const resp = await fetch(audioUrl);
+      if (!resp.ok) {
+        return json({ error: `Failed to fetch audio from URL (${resp.status})` }, { status: 400 });
       }
-    } else {
-      return json({ error: 'No audio file or URL provided.' }, { status: 400 });
+      const arrayBuf = await resp.arrayBuffer();
+      const sizeBytes = arrayBuf.byteLength;
+      if (sizeBytes > PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES) {
+        return json({ error: `Remote file too large: ${(sizeBytes/1024/1024).toFixed(1)}MB (max ${(PERFORMANCE_CONFIG.MAX_FILE_SIZE_BYTES/1024/1024).toFixed(1)}MB)` }, { status: 400 });
+      }
+      audioBuffer = Buffer.from(arrayBuf);
+    } catch (e) {
+      return json({ error: `Could not download audio from URL: ${e instanceof Error ? e.message : 'Unknown error'}` }, { status: 400 });
     }
 
     const processors = initializeProcessors();
@@ -82,7 +77,7 @@ export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
       return json({ error: 'No AI services are configured on the server.' }, { status: 500 });
     }
 
-  const results = await processWithAllAIs(processors, fileForProcessing);
+  const results = await processWithAllAIs(processors, audioBuffer);
     const successfulResults = results.filter((r): r is TranscriptionResult => r !== null);
 
     if (successfulResults.length === 0) {
@@ -147,31 +142,31 @@ export const POST: RequestHandler = async ({ request, cookies, fetch }) => {
 /**
  * Initializes and returns a list of available AI processors based on configured API keys.
  */
-function initializeProcessors(): AudioProcessor[] {
-  const processors: AudioProcessor[] = [];
-  if (process.env.OPENAI_API_KEY) processors.push(new WhisperProcessor({ apiKey: process.env.OPENAI_API_KEY }));
-  if (process.env.ASSEMBLYAI_API_KEY) processors.push(new AssemblyAIProcessor({ apiKey: process.env.ASSEMBLYAI_API_KEY }));
-  if (process.env.DEEPGRAM_API_KEY) processors.push(new DeepgramProcessor({ apiKey: process.env.DEEPGRAM_API_KEY }));
-  if (process.env.ELEVENLABS_API_KEY) processors.push(new ElevenLabsProcessor({ apiKey: process.env.ELEVENLABS_API_KEY }));
-  if (process.env.GEMINI_API_KEY) processors.push(new GeminiProcessor({ apiKey: process.env.GEMINI_API_KEY }));
+function initializeProcessors(): TranscriptionService[] {
+  const processors: TranscriptionService[] = [];
+  if (whisperProcessor.isConfigured) processors.push(whisperProcessor);
+  if (assemblyAiProcessor.isConfigured) processors.push(assemblyAiProcessor);
+  if (deepgramProcessor.isConfigured) processors.push(deepgramProcessor);
+  if (elevenLabsProcessor.isConfigured) processors.push(elevenLabsProcessor);
+  if (geminiProcessor.isConfigured) processors.push(geminiProcessor);
   return processors;
 }
 
 /**
  * Processes the audio file with all available AI services in parallel and with timeouts.
  */
-async function processWithAllAIs(processors: AudioProcessor[], file: File): Promise<(TranscriptionResult | null)[]> {
-  const promises = processors.map(processor => processWithTimeout(processor, file));
+async function processWithAllAIs(processors: TranscriptionService[], audio: Buffer): Promise<(TranscriptionResult | null)[]> {
+  const promises = processors.map(processor => processWithTimeout(processor, audio));
   return Promise.all(promises);
 }
 
 /**
- * Wraps the processor's `processFile` call with a timeout.
+ * Wraps the processor's `process` call with a timeout.
  */
-async function processWithTimeout(processor: AudioProcessor, file: File): Promise<TranscriptionResult | null> {
+async function processWithTimeout(processor: TranscriptionService, audio: Buffer): Promise<TranscriptionResult | null> {
   try {
     return await Promise.race([
-      processor.processFile(file),
+      processor.process(audio),
       new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Timeout')), PERFORMANCE_CONFIG.SERVICE_TIMEOUT_MS)
       )

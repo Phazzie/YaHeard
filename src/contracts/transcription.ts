@@ -20,6 +20,26 @@ export type AudioFormat = typeof SUPPORTED_AUDIO_FORMATS[number];
 export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
 
 /**
+ * The result of a single API connection test.
+ */
+export interface ApiTestResult {
+  serviceName: string;
+  success: boolean;
+  error?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Defines the contract for any transcription service processor.
+ */
+export interface TranscriptionService {
+  serviceName: string;
+  isConfigured: boolean;
+  process: (audio: Buffer) => Promise<TranscriptionResult>;
+  testConnection: () => Promise<ApiTestResult>;
+}
+
+/**
  * The standardized output from ANY AI transcription service.
  * All processors must return data in this format.
  */

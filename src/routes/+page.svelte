@@ -45,7 +45,6 @@
   import FileUpload from '$lib/components/FileUpload.svelte';
   import ResultsDisplay from '$lib/components/ResultsDisplay.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
-  import { chunkAudioFile } from '$lib/chunk-audio';
 
   // ========= REGENERATION BOUNDARY END: Imports =========
 
@@ -65,13 +64,12 @@
 
   let audioFileFromUser: File | null = null;  // Current uploaded audio file
   let audioUrlOverride: string = '';          // Optional public URL to audio (bypasses upload limits)
-  let useChunking: boolean = false;           // Enable client-side chunking for large files
-  let chunkProgress = 0;                      // 0-100 for chunk pipeline
   let isProcessingTranscription = false;      // Loading state during API calls
   let transcriptionResults: any[] = [];       // Results from all AI services
   let consensusResult: any = null;            // Consensus result with AI reasoning
   let uploadProgress = 0;                     // Progress percentage (0-100)
   let errorMessage = '';                      // User-friendly error display
+  let testApiResults: any[] | null = null;    // To store results from the API tests
   
   // Add explicit display state to force reactivity
   let showResults = false;                    // Controls main display state
@@ -132,142 +130,137 @@
   // @dependencies: audioFileFromUser state
 
   async function startTranscriptionProcess() {
-    console.log('@phazzie-checkpoint-4: Starting transcription process');
-
-    // WHY EARLY VALIDATION:
-    // =====================
-    // Prevent API calls with invalid state
-    // Clear error messages guide user action
-    // Fail fast to improve user experience
-
     if (!audioFileFromUser && !audioUrlOverride) {
       errorMessage = 'No file selected or URL provided';
       return;
     }
 
+    isProcessingTranscription = true;
+    errorMessage = '';
+    let publicUrl = audioUrlOverride;
+
     try {
-      isProcessingTranscription = true;
-      uploadProgress = 0;
-
-      console.log('@phazzie-checkpoint-5: Sending file to API');
-
-      // Real progress tracking instead of fake simulation
-      uploadProgress = 10; // Start at 10% when request begins
-
-  const formData = new FormData();
-  if (audioUrlOverride) {
-    formData.append('audioUrl', audioUrlOverride.trim());
-  } else if (audioFileFromUser) {
-    formData.append('audio', audioFileFromUser);
-  }
-  // Include CSRF token provided by the server to satisfy API protection
-  formData.append('csrfToken', data?.csrfToken ?? '');
-
-      console.log('@phazzie-debug: About to make fetch request');
-      uploadProgress = 30; // 30% when starting fetch
-      let response: Response;
-      if (useChunking && audioFileFromUser && !audioUrlOverride) {
-        // Chunk pipeline: split file, upload each chunk, merge transcripts
-        const chunks = await chunkAudioFile(audioFileFromUser, { targetBytes: 4 * 1024 * 1024, minSeconds: 10 });
-        const chunkTexts: { index: number; textsByService: Record<string, string> }[] = [];
-        for (let i = 0; i < chunks.length; i++) {
-          const fd = new FormData();
-          fd.append('audio', chunks[i]);
-          fd.append('csrfToken', data?.csrfToken ?? '');
-          const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
-          if (!r.ok) {
-            const t = await r.text();
-            throw new Error(`Chunk ${i+1}/${chunks.length} failed: ${r.status} ${t}`);
-          }
-          const result = await r.json();
-          const textsByService: Record<string, string> = {};
-          (result?.individualResults || []).forEach((svc: any) => { textsByService[svc.serviceName] = svc.text || ''; });
-          chunkTexts.push({ index: i, textsByService });
-          chunkProgress = Math.round(((i + 1) / chunks.length) * 100);
-        }
-        // Merge chunk transcripts server-side for consistency
-        const mergeResp = await fetch('/api/merge-chunks', {
+      // If a file is uploaded, use the direct-to-storage workflow
+      if (audioFileFromUser && !publicUrl) {
+        // Step 1: Get a presigned URL from our server
+        console.log('Requesting presigned URL...');
+        const presignedUrlResponse = await fetch('/api/generate-upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ csrfToken: data?.csrfToken ?? '', chunkTexts })
+          body: JSON.stringify({
+            filename: audioFileFromUser.name,
+            csrfToken: data.csrfToken
+          })
         });
-        response = mergeResp;
-      } else {
-        response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+
+        if (!presignedUrlResponse.ok) {
+          throw new Error('Could not get an upload URL from the server.');
+        }
+        const { signedUrl, publicUrl: returnedPublicUrl } = await presignedUrlResponse.json();
+        publicUrl = returnedPublicUrl;
+        console.log('Got presigned URL:', signedUrl);
+
+        // Step 2: Upload the file directly to Spaces with progress tracking
+        console.log('Uploading file to storage...');
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', signedUrl, true);
+          xhr.setRequestHeader('Content-Type', audioFileFromUser?.type || 'application/octet-stream');
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percentage = Math.round((event.loaded / event.total) * 100);
+              uploadProgress = percentage;
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              console.log('File upload to storage successful.');
+              uploadProgress = 100;
+              resolve(xhr.response);
+            } else {
+              reject(new Error(`File upload failed: ${xhr.statusText}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('File upload failed due to a network error.'));
+          xhr.send(audioFileFromUser);
+        });
       }
 
-      console.log('@phazzie-debug: Fetch request completed', response.status);
-      uploadProgress = 60; // 60% when fetch completes
+      // Step 3: Trigger transcription processing on our server with the public URL
+      console.log('Sending URL to transcription API:', publicUrl);
+      const formData = new FormData();
+      formData.append('audioUrl', publicUrl);
+      formData.append('csrfToken', data.csrfToken);
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('@phazzie-debug: Response not OK', response.status, errorText);
         throw new Error(`API call failed: ${response.status} - ${errorText}`);
       }
 
-      uploadProgress = 80; // 80% when starting to parse response
-
       const result = await response.json();
-      console.log('@phazzie-debug: API response received:', result);
-      console.log('@phazzie-debug: Type of result:', typeof result);
-      console.log('@phazzie-debug: Keys in result:', Object.keys(result || {}));
-      console.log('@phazzie-debug: result.finalText exists?', !!result?.finalText);
-      
-      // API now directly returns ConsensusResult
       if (result && result.finalText) {
-        console.log('@phazzie-debug: Consensus data:', result);
-        
-        // Extract individual results and consensus from direct response
         transcriptionResults = result.individualResults || [];
         consensusResult = result;
-        
-        // FORCE REACTIVITY: Explicitly trigger state change
-        showResults = true;
         displayState = 'results';
-        
-        console.log('@phazzie-debug: Set transcriptionResults length:', transcriptionResults.length);
-        console.log('@phazzie-debug: Set consensusResult:', !!consensusResult);
-        console.log('@phazzie-debug: Set showResults:', showResults);
-        console.log('@phazzie-debug: Set displayState:', displayState);
       } else {
-        console.log('@phazzie-debug: No results in API response');
-        console.log('@phazzie-debug: result.finalText value:', result?.finalText);
-        transcriptionResults = [];
-        consensusResult = null;
-        showResults = false;
-        displayState = 'error';
+        throw new Error('Processing completed, but no valid transcription was returned.');
       }
-
-      console.log('@phazzie-debug: Final transcriptionResults:', transcriptionResults);
-      console.log('@phazzie-debug: Final consensusResult:', consensusResult);
-      uploadProgress = 100; // 100% when processing complete
-      console.log('@phazzie-checkpoint-6: Transcription completed successfully');
 
     } catch (error) {
-      console.error('@phazzie-error: Transcription processing failed');
-      console.error('@phazzie-debug: Full error details:', error);
-      
-      // Check if it's a network error
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorMessage = 'Network error: Unable to connect to the transcription service. Please check your internet connection.';
-      } else if (error instanceof Error && error.message.includes('API call failed')) {
-        errorMessage = `Server error: ${error.message}`;
-      } else {
-        errorMessage = 'Unable to process audio file. Please check your internet connection and try again.';
-      }
-      console.error(error);
+      console.error('Transcription process failed:', error);
+      errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      displayState = 'error';
     } finally {
-      // WHY FINALLY BLOCK:
-      // ==================
-      // Always reset loading state
-      // Prevents UI from getting stuck in loading mode
-      // Ensures user can retry after errors
-
       isProcessingTranscription = false;
+      uploadProgress = 0; // Reset progress bar
     }
   }
 
   // ========= REGENERATION BOUNDARY END: Transcription Processing =========
+
+  // ========= REGENERATION BOUNDARY START: API Test Function =========
+  async function runApiTests() {
+    testApiResults = []; // Reset previous results
+    isProcessingTranscription = true; // Reuse processing state to show loading
+    errorMessage = '';
+
+    try {
+      const response = await fetch('/api/test-apis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ csrfToken: data?.csrfToken ?? '' })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API test call failed: ${response.status} - ${errorText}`);
+      }
+
+      const results = await response.json();
+      testApiResults = results.testResults;
+
+    } catch (error) {
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+        errorMessage = 'An unknown error occurred during API tests.';
+      }
+      console.error(error);
+    } finally {
+      isProcessingTranscription = false;
+    }
+  }
+  // ========= REGENERATION BOUNDARY END: API Test Function =========
 </script>
 
 <!-- ========= REGENERATION BOUNDARY START: UI Template ========= -->
@@ -371,6 +364,36 @@
           </div>
         </div>
 
+        <!-- API Test Section -->
+        <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 text-center">
+            <h3 class="text-2xl font-bold text-glow-purple mb-4">Diagnose API Connections</h3>
+            <button
+              on:click={runApiTests}
+              class="btn-cyber-secondary text-white font-bold py-3 px-6 rounded-lg text-lg"
+              disabled={isProcessingTranscription}
+            >
+              <span class="relative z-10">🧪 Test APIs</span>
+            </button>
+
+            {#if testApiResults}
+              <div class="mt-6 text-left space-y-2">
+                <h4 class="text-xl font-bold text-white/90">API Test Results:</h4>
+                <ul class="list-disc list-inside bg-black/30 p-4 rounded-lg">
+                  {#each testApiResults as result}
+                    <li class:text-green-400={result.success} class:text-red-400={!result.success}>
+                      <strong>{result.serviceName}:</strong>
+                      {#if result.success}
+                        ✅ Success
+                      {:else}
+                        ❌ Failed - {result.error}
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+        </div>
+
         <!-- Ready to Process Section -->
         {#if audioFileFromUser}
           <div class="glass-morphism holographic rounded-3xl shadow-2xl p-10 border-2 border-white/20 hover:border-neon-purple/50 transition-all duration-500 animate-slide-in-right">
@@ -385,9 +408,6 @@
               >
                 <span class="relative z-10">🌟 PROCESS WITH AI MAGIC 🌟</span>
               </button>
-              <div class="flex items-center justify-center gap-3 mt-4 text-white/80 text-sm">
-                <label class="flex items-center gap-2"><input type="checkbox" bind:checked={useChunking} /> Split large file into chunks (4MB target)</label>
-              </div>
               
               <p class="text-lg text-white/70 mt-4 animate-pulse">
                 Powered by Whisper • AssemblyAI • Deepgram • Gemini • ElevenLabs
@@ -405,9 +425,6 @@
           <h2 class="text-4xl font-bold text-glow-cyan mb-8">AI Minds Collaborating...</h2>
 
           <ProgressBar progress={uploadProgress} />
-          {#if useChunking}
-            <div class="mt-2 text-white/70 text-sm">Chunk progress: {chunkProgress}%</div>
-          {/if}
 
           <div class="mt-8 space-y-4">
             <p class="text-xl text-white/90">Processing your audio with 5 AI services...</p>

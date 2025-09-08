@@ -1,53 +1,47 @@
-import type { AudioProcessor, GeminiConfig } from '../contracts/processors';
-import type { TranscriptionResult } from '../contracts/transcription';
+import type { TranscriptionResult, TranscriptionService, ApiTestResult } from '../contracts/transcription';
 
-const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+const API_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const TRANSCRIPTION_PROMPT = "Please transcribe this audio file. Provide only the transcribed text without any additional commentary or formatting.";
 
 /**
- * Implements the AudioProcessor interface for Google's Gemini model.
+ * Implements the TranscriptionService interface for Google's Gemini model.
  */
-export class GeminiProcessor implements AudioProcessor {
-  readonly serviceName = 'Google Gemini';
-  private config: GeminiConfig;
+export const geminiProcessor: TranscriptionService = {
+  serviceName: 'Google Gemini',
 
-  constructor(config: GeminiConfig = {}) {
-    this.config = config;
-  }
+  isConfigured: !!process.env.GEMINI_API_KEY,
 
-  async isAvailable(): Promise<boolean> {
-    return !!this.config.apiKey;
-  }
-
-  async processFile(file: File): Promise<TranscriptionResult> {
-    if (!this.config.apiKey) {
+  async process(audio: Buffer): Promise<TranscriptionResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
       throw new Error('Gemini API key not configured.');
     }
 
     try {
-      const base64Audio = await this.arrayBufferToBase64(file);
+      const base64Audio = audio.toString('base64');
       const startTime = Date.now();
+      const model = 'gemini-1.5-flash-latest';
 
       const requestBody = {
         contents: [{
           parts: [
             { text: TRANSCRIPTION_PROMPT },
-            { inlineData: { mimeType: file.type || 'audio/wav', data: base64Audio } }
+            { inlineData: { mimeType: 'audio/mp3', data: base64Audio } } // Assume mp3, Gemini is flexible
           ]
         }],
         generationConfig: {
-          temperature: this.config.options?.temperature || 0.1,
-          topK: this.config.options?.topK || 1,
-          topP: this.config.options?.topP || 1.0,
-          maxOutputTokens: this.config.options?.maxOutputTokens || 2048,
+          temperature: 0.1,
+          topK: 1,
+          topP: 1.0,
+          maxOutputTokens: 2048,
         }
       };
 
-      const response = await fetch(API_ENDPOINT_BASE, {
+      const response = await fetch(`${API_ENDPOINT_BASE}/models/${model}:generateContent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': this.config.apiKey
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify(requestBody)
       });
@@ -74,7 +68,7 @@ export class GeminiProcessor implements AudioProcessor {
         processingTimeMs: processingTime,
         timestamp: new Date(),
         metadata: {
-          model: this.config.options?.model || 'gemini-2.0-flash-exp',
+          model: model,
           apiVersion: 'v1beta',
           rawResponse: data
         }
@@ -84,22 +78,33 @@ export class GeminiProcessor implements AudioProcessor {
       console.error(`Gemini processor error: ${errorMessage}`);
       throw new Error(`Gemini processor failed: ${errorMessage}`);
     }
-  }
+  },
 
-  private async arrayBufferToBase64(file: File): Promise<string> {
-    const arrayBuffer = await file.arrayBuffer();
-    // Server-side base64 conversion using Buffer (Node.js)
-    const buffer = Buffer.from(arrayBuffer);
-    return buffer.toString('base64');
-  }
+  async testConnection(): Promise<ApiTestResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return { serviceName: this.serviceName, success: false, error: 'API key not configured.' };
+    }
 
-  async getCostPerMinute(): Promise<number> {
-    // Gemini pricing as of late 2024.
-    return 0.0018;
-  }
+    try {
+      const response = await fetch(`${API_ENDPOINT_BASE}/models?pageSize=1`, {
+        method: 'GET',
+        headers: { 'x-goog-api-key': apiKey }
+      });
 
-  getSupportedFormats(): string[] {
-    // Return file extensions to comply with AudioProcessor contract
-    return ['.wav', '.mp3', '.mp4', '.m4a', '.ogg', '.webm', '.flac'];
+      if (response.ok) {
+        return { serviceName: this.serviceName, success: true };
+      } else {
+        return {
+          serviceName: this.serviceName,
+          success: false,
+          error: `API returned status ${response.status}`,
+          details: { statusCode: response.status }
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+      return { serviceName: this.serviceName, success: false, error: errorMessage };
+    }
   }
-}
+};

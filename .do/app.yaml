@@ -33,3 +33,21 @@ services:
   - key: PORT
     value: "3000"
     type: GENERAL
+  - key: BODY_SIZE_LIMIT
+    value: "10240" # 10 MB
+    type: GENERAL
+  - key: SPACES_BUCKET_NAME
+    value: ""
+    type: GENERAL
+  - key: SPACES_REGION
+    value: ""
+    type: GENERAL
+  - key: SPACES_ENDPOINT
+    value: ""
+    type: GENERAL
+  - key: SPACES_ACCESS_KEY_ID
+    value: ""
+    type: SECRET
+  - key: SPACES_SECRET_ACCESS_KEY
+    value: ""
+    type: SECRET
