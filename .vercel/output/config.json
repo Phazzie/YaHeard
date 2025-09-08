@@ -1,0 +1,31 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"src": "/_app/immutable/.+",
+			"headers": {
+				"cache-control": "public, immutable, max-age=31536000"
+			}
+		},
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/?(?:/__data.json)?$",
+			"dest": "/"
+		},
+		{
+			"src": "^/api/merge-chunks/?(?:/__data.json)?$",
+			"dest": "/api/merge-chunks"
+		},
+		{
+			"src": "^/api/transcribe/?(?:/__data.json)?$",
+			"dest": "/api/transcribe"
+		},
+		{
+			"src": "/.*",
+			"dest": "/![-]/catchall"
+		}
+	],
+	"overrides": {}
+}

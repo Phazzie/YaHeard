@@ -1,0 +1,43 @@
+#
+# DigitalOcean App Platform specification for Multi-AI Transcription Engine
+# Deploy using: doctl apps create --spec .do/app.yaml
+# Or upload this file via DigitalOcean Control Panel
+#
+name: yaheard-transcription-engine
+services:
+- name: web
+  source_dir: /
+  github:
+    branch: main
+    deploy_on_push: true
+    repo: Phazzie/YaHeard
+  build_command: npm run build
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  http_port: 3000
+  run_command: node build/index.js
+  routes:
+  - path: /
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: "3000"
+  # AI Service API Keys - set these in DigitalOcean App Platform Environment Variables
+  # At least one of these is required for the application to function
+  - key: OPENAI_API_KEY
+    value: ""
+    type: SECRET
+  - key: ASSEMBLYAI_API_KEY
+    value: ""
+    type: SECRET
+  - key: DEEPGRAM_API_KEY
+    value: ""
+    type: SECRET
+  - key: ELEVENLABS_API_KEY
+    value: ""
+    type: SECRET
+  - key: GEMINI_API_KEY
+    value: ""
+    type: SECRET
