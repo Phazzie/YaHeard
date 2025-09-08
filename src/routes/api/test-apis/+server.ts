@@ -1,5 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { validateCsrfToken } from '$lib/security';
+import { validateCsrfFromJson } from '$lib/security';
 
 // Import all the service implementations
 import { assemblyAiProcessor } from '../../../implementations/assembly';
@@ -16,10 +16,12 @@ const allServices = [
   elevenLabsProcessor
 ];
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
     const body = await request.json();
-    validateCsrfToken(body.csrfToken);
+    if (!validateCsrfFromJson(body, cookies.get('csrfToken'))) {
+        throw error(403, 'Request could not be processed. Please try again.');
+    }
 
     const configuredServices = allServices.filter(s => s.isConfigured);
 

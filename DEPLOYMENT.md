@@ -1,67 +1,69 @@
 # Deployment Guide
 
-This project is built with SvelteKit v2, Vite v5, and TypeScript. It is now configured for deployment on DigitalOcean App Platform.
+This project is built with SvelteKit v2, Vite v5, and TypeScript. It is configured for flexible deployment to multiple platforms, including **Vercel** and **DigitalOcean App Platform**.
 
-## Adapter
+## Core Architecture Notes
 
-The project uses `@sveltejs/adapter-node` to create a standalone Node.js server application upon build.
+### File Uploads
+To handle large audio files reliably, this application uses a **direct-to-storage upload** workflow. It requires a cloud storage bucket (like DigitalOcean Spaces or AWS S3) to work correctly. This method bypasses server request size limits present on platforms like Vercel and DigitalOcean.
 
-## Node.js runtime
+### SvelteKit Adapters
+The project uses a conditional adapter strategy in `svelte.config.js`:
+- If the `VERCEL` environment variable is detected, it uses `@sveltejs/adapter-vercel`.
+- Otherwise, it defaults to `@sveltejs/adapter-node` for standard Node.js server environments like DigitalOcean.
 
-- Requires Node.js >= 20.0.0 (see `package.json` engines)
-- Package manager: npm
+## Required Configuration
 
-## Environment variables
+### 1. AI Service API Keys
+For transcription, at least one of the following API keys must be provided as an environment variable:
+- `OPENAI_API_KEY`
+- `ASSEMBLYAI_API_KEY`
+- `DEEPGRAM_API_KEY`
+- `ELEVENLABS_API_KEY`
+- `GEMINI_API_KEY`
 
-Copy `.env.example` to `.env` for local development and set at least one API key.
+### 2. Storage Bucket Credentials (Required for all deployments)
+For file uploads, you must configure an S3-compatible storage bucket.
+- `SPACES_BUCKET_NAME`: The name of your bucket.
+- `SPACES_REGION`: The region of your bucket (e.g., `nyc3`).
+- `SPACES_ENDPOINT`: The endpoint URL (e.g., `nyc3.digitaloceanspaces.com`).
+- `SPACES_ACCESS_KEY_ID`: Your storage access key.
+- `SPACES_SECRET_ACCESS_KEY`: Your storage secret key.
 
-For production on DigitalOcean, define these in the App Spec (`.do/app.yaml`) or in the App Platform dashboard under Settings.
+See `.env.example` for a full list of variables to set for local development.
 
-```
-OPENAI_API_KEY=
-ASSEMBLYAI_API_KEY=
-DEEPGRAM_API_KEY=
-ELEVENLABS_API_KEY=
-GEMINI_API_KEY=
-```
+---
 
-## Security considerations
+## Deployment to Vercel
 
-- CSRF: Implements a stateless double-submit cookie. Works on serverless—no shared state. Ensure HTTPS in production so the CSRF cookie is marked `secure`.
-- Rate limiting: Current implementation uses an in-memory Map for development only. For multi-instance deployments, this should be replaced with Redis or another distributed store.
-- Headers: Consider adding Content Security Policy (CSP) and security headers via a middleware or platform settings.
+1.  **Fork and Clone:** Fork this repository and clone it locally.
+2.  **Vercel Project:** Create a new project on Vercel and link it to your forked repository.
+3.  **Environment Variables:** In the Vercel project settings, add all the required environment variables for the AI services and the storage bucket listed above.
+4.  **Deploy:** Vercel will automatically detect the SvelteKit framework and deploy the application. The `VERCEL` environment variable will be set automatically, ensuring the correct adapter is used.
 
-## DigitalOcean App Platform Configuration
+---
 
-This repository is configured for deployment on the DigitalOcean App Platform using the `.do/app.yaml` specification file.
+## Deployment to DigitalOcean App Platform
 
-- **Build Command:** `npm run build`
-- **Start Command:** `npm start`
+1.  **Fork and Clone:** Fork this repository and clone it locally.
+2.  **DigitalOcean Project:** Create a new App on the DigitalOcean App Platform and link it to your repository.
+3.  **Configuration:** The App Platform will detect and use the `.do/app.yaml` file for configuration.
+4.  **Environment Variables:** In the App Platform settings, add all the required environment variables.
+5.  **Deploy:** Launch the app. The absence of a `VERCEL` variable will correctly trigger the use of the Node adapter.
 
-The platform will automatically use these scripts to build and launch the application. The app will be served on the port defined by the `PORT` environment variable (defaults to 3000).
-
-To deploy:
-1. Create a new App on the DigitalOcean App Platform.
-2. Connect your GitHub account and select this repository.
-3. The App Platform will detect the `.do/app.yaml` file and use it for configuration.
-4. Fill in the required environment variables in the dashboard.
-5. Launch the app.
+---
 
 ## Local Development
 
-Run the development server:
-```bash
-npm install
-npm run dev
-```
-
-To run a production-like build locally:
-```bash
-npm run build
-npm run start
-```
-
-## Next steps
-
-- Replace dev rate limiting with Redis for production.
-- Add CSP and observability/structured logging.
+1.  Copy `.env.example` to `.env`.
+2.  Fill in the required environment variables in your new `.env` file.
+3.  Run the development server:
+    ```bash
+    npm install
+    npm run dev
+    ```
+4.  To run a production-like build locally (using the Node adapter):
+    ```bash
+    npm run build
+    npm run start
+    ```

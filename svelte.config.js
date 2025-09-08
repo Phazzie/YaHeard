@@ -1,4 +1,5 @@
-import adapter from '@sveltejs/adapter-node';
+import nodeAdapter from '@sveltejs/adapter-node';
+import vercelAdapter from '@sveltejs/adapter-vercel';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -8,8 +9,8 @@ const config = {
   preprocess: vitePreprocess(),
 
   kit: {
-    // adapter-node will build the app as a standalone Node.js server
-    adapter: adapter()
+    // Use Vercel adapter if deploying to Vercel, otherwise use Node adapter for DigitalOcean etc.
+    adapter: process.env.VERCEL ? vercelAdapter() : nodeAdapter()
   }
 };
 

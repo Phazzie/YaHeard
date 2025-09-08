@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { validateCsrfToken } from '$lib/security';
+import { validateCsrfFromJson } from '$lib/security';
 import { randomUUID } from 'crypto';
 
 const {
@@ -27,17 +27,18 @@ const s3Client = new S3Client({
   },
 });
 
-export const POST = async ({ request }) => {
+export const POST = async ({ request, cookies }) => {
   try {
     const body = await request.json();
     const originalFilename = body.filename;
-    const csrfToken = body.csrfToken;
+
+    if (!validateCsrfFromJson(body, cookies.get('csrfToken'))) {
+        throw error(403, 'Request could not be processed. Please try again.');
+    }
 
     if (!originalFilename || typeof originalFilename !== 'string') {
       throw error(400, 'Filename is required.');
     }
-
-    validateCsrfToken(csrfToken);
 
     // Sanitize filename and create a unique key for the object in the bucket
     const sanitizedFilename = originalFilename.replace(/[^a-zA-Z0-9._-]/g, '');
