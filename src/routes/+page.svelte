@@ -189,7 +189,7 @@
         const mergeResp = await fetch('/api/merge-chunks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chunkTexts })
+          body: JSON.stringify({ csrfToken: data?.csrfToken ?? '', chunkTexts })
         });
         response = mergeResp;
       } else {

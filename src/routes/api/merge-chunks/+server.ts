@@ -1,6 +1,7 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import type { TranscriptionResult } from '../../../contracts/transcription';
 import { ConsensusComparisonEngine } from '../../../implementations/comparison';
+import { checkRateLimit, getClientIP, validateCsrfFromJson } from '$lib/security';
 
 /*
   Merge per-chunk per-service transcripts into a final consensus-like result.
@@ -12,14 +13,36 @@ import { ConsensusComparisonEngine } from '../../../implementations/comparison';
   Strategy:
   - For each service, concatenate its chunk texts in order (with spaces).
   - Build synthetic TranscriptionResult[] with one result per service.
+
   - Run the existing comparison engine to produce a ConsensusResult.
   Caveat: token-level confidences won’t exist here; this is intended for large-file assembly.
 */
 
-export const POST: RequestHandler = async ({ request }) => {
+
+export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    const body = await request.json();
-    const chunkTexts = Array.isArray(body?.chunkTexts) ? body.chunkTexts : [];
+    // Rate limit check first
+    const clientIP = getClientIP(request);
+    const rl = checkRateLimit(clientIP);
+    if (!rl.allowed) {
+      return json(
+        { error: rl.error || 'Rate limit exceeded. Too many requests.' },
+        { status: rl.error ? 400 : 429, headers: rl.retryAfter ? { 'Retry-After': rl.retryAfter.toString() } : {} }
+      );
+    }
+
+    const body = await request.json().catch(() => null as any);
+    if (!body || typeof body !== 'object') {
+      return json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // CSRF: double-submit token validation (body token must match cookie)
+    const csrfCookie = cookies.get('csrfToken');
+    if (!validateCsrfFromJson(body, csrfCookie)) {
+      return json({ error: 'Request could not be processed. Please try again.' }, { status: 403 });
+    }
+    const chunkTexts: Array<{ index: number; textsByService: Record<string, string> }>
+      = Array.isArray(body?.chunkTexts) ? body.chunkTexts : [];
     if (chunkTexts.length === 0) {
       return json({ error: 'No chunk texts provided' }, { status: 400 });
     }

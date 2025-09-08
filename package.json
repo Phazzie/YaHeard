@@ -2,7 +2,7 @@
   "name": "multi-ai-transcription-engine",
   "version": "1.0.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "description": "Multi-AI Transcription Consensus Engine with @Phazzie Architecture",
   "type": "module",
@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
-    "@sveltejs/kit": "^2.0.0",
+    "@sveltejs/kit": "2.4.3",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/node": "^20.19.13",
     "autoprefixer": "^10.4.16",
@@ -29,7 +29,6 @@
     "vite": "^5.0.3"
   },
   "dependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.50.0",
     "@sveltejs/adapter-vercel": "^5.10.2",
     "@tailwindcss/forms": "^0.5.7"
   }
